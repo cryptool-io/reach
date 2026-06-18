@@ -1,0 +1,389 @@
+// Reach v0 schema. SQLite for dev — identical model swaps to Postgres for prod.
+// "json"-typed columns are stored as TEXT in SQLite and parsed in-app.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  modeDefault     String   @default("manual") // manual | semi | auto
+  icpMd           String   @default("")
+  narrativeMd     String   @default("")
+  preset          String   @default("blank")  // blank | fundraising | sales | recruiting
+  fieldSchemaJson String   @default("[]")      // client-defined custom fields: [{key,label,type}]
+  createdAt       DateTime @default(now())
+
+  channels        Channel[]
+  prospects       Prospect[]
+  conversations   Conversation[]
+  cadences        Cadence[]
+  tasks           Task[]
+  assets          ContentAsset[]
+  promptTemplates PromptTemplate[]
+  networkEdges    NetworkEdge[]
+  campaigns       Campaign[]
+  connections     Connection[]
+  mailboxes       Mailbox[]
+}
+
+// A sending mailbox for inbox rotation — many per project for cold-email volume.
+model Mailbox {
+  id              String   @id @default(cuid())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  label           String   @default("")
+  fromName        String   @default("")
+  fromEmail       String
+  credentialsJson String   @default("")        // encrypted {host,port,secure,user,pass,imapHost,imapPort}
+  dailyLimit      Int      @default(40)
+  warmupEnabled   Boolean  @default(true)
+  warmupStartedAt DateTime?
+  sentToday       Int      @default(0)
+  sentDate        String   @default("")         // YYYY-MM-DD, for daily reset
+  status          String   @default("active")   // active | paused | error
+  lastError       String   @default("")
+  lastTestedAt    DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([projectId, status])
+}
+
+model Channel {
+  id              String   @id @default(cuid())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId       String
+  kind            String   // email | linkedin | x | telegram | discord
+  status          String   @default("disconnected") // disconnected | connected | error
+  mode            String   @default("manual")        // manual | semi | auto
+  credentialsJson String   @default("")              // AES-256-GCM encrypted credential blob
+  connLabel       String   @default("")              // non-secret display label (e.g. "jane@acme.com")
+  lastTestError   String   @default("")
+  lastTestedAt    DateTime?
+  lastSyncAt      DateTime?                           // IMAP reply-sync watermark
+  createdAt       DateTime @default(now())
+
+  conversations Conversation[]
+  messages      Message[]
+
+  @@index([projectId, kind])
+}
+
+model Prospect {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  name        String
+  company     String   @default("")
+  role        String   @default("")
+  linkedinUrl String   @default("")
+  email       String   @default("")
+  xHandle     String   @default("")
+  telegram    String   @default("")
+  discord     String   @default("")
+  stage       String   @default("new") // new | researching | contacted | replied | meeting | committed | passed
+  score       Int      @default(0)
+  tags        String   @default("")    // comma-separated tags (lowercased)
+  customJson  String   @default("{}")  // JSON blob for per-project custom fields
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  conversations Conversation[]
+  tasks         Task[]
+  notes         Note[]
+  cadenceRuns   CadenceRun[]
+  enrollments   CampaignEnrollment[]
+
+  @@index([projectId, stage])
+  @@index([projectId, name])
+}
+
+model Conversation {
+  id         String   @id @default(cuid())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  prospectId String
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channelId  String
+  lastAt     DateTime @default(now())
+
+  messages Message[]
+
+  @@unique([prospectId, channelId])
+  @@index([projectId, lastAt])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  channel        Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  channelId      String
+  direction      String   // out | in
+  body           String
+  status         String   @default("draft") // draft | queued | sent | failed | received
+  scheduledFor   DateTime?
+  sentAt         DateTime?
+  openedAt       DateTime?                   // first open (tracking pixel)
+  clickedAt      DateTime?                   // first link click (tracking redirect)
+  draftMetaJson  String   @default("{}")    // {campaignId, step, version, versionId, enrollmentId, ...}
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([status])
+}
+
+model Cadence {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  name      String
+  stepsJson String   @default("[]") // [{day, channel, intent, condition}]
+  createdAt DateTime @default(now())
+
+  runs CadenceRun[]
+}
+
+model CadenceRun {
+  id          String   @id @default(cuid())
+  cadence     Cadence  @relation(fields: [cadenceId], references: [id], onDelete: Cascade)
+  cadenceId   String
+  prospect    Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  prospectId  String
+  currentStep Int      @default(0)
+  status      String   @default("active") // active | paused | done | cancelled
+  nextFireAt  DateTime?
+  startedAt   DateTime @default(now())
+
+  @@index([status, nextFireAt])
+  @@index([prospectId])
+}
+
+model Task {
+  id         String   @id @default(cuid())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  prospectId String?
+  kind       String   // "cadence-step" | "follow-up" | "research" | "call-debrief"
+  title      String   @default("")
+  dueAt      DateTime?
+  status     String   @default("open") // open | done | skipped
+  metaJson   String   @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([projectId, status, dueAt])
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  prospectId String
+  body       String
+  source     String   @default("manual") // manual | call-debrief | intelligence
+  createdAt  DateTime @default(now())
+
+  @@index([prospectId, createdAt])
+}
+
+model ContentAsset {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  kind      String   // "deck" | "dataroom" | "calendar" | "one-pager" | "link" | "deck-generated" | "dataroom-plan"
+  url       String   @default("")
+  title     String
+  notes     String   @default("")
+  body      String   @default("") // generated content (deck markdown, dataroom plan, etc.)
+  createdAt DateTime @default(now())
+
+  @@index([projectId, kind])
+}
+
+// The user's own network, for the Warm Intro Mapper (import your connections).
+model Connection {
+  id          String   @id @default(cuid())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  name        String
+  company     String   @default("")
+  title       String   @default("")
+  email       String   @default("")
+  linkedinUrl String   @default("")
+  strength    Int      @default(2) // 1=weak, 2=normal, 3=strong
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, company])
+  @@index([projectId, name])
+}
+
+model PromptTemplate {
+  id        String   @id @default(cuid())
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String?  // null = global template, project-scoped overrides
+  slot      String   // "composer.cold" | "composer.reply" | "composer.comment" | "composer.follow-up" | "composer.update" | "intelligence.brief" | "debrief.summary"
+  version   Int      @default(1)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, slot, version])
+}
+
+model NetworkEdge {
+  id         String   @id @default(cuid())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  fromHandle String   // e.g. "linkedin:my-profile"
+  toHandle   String   // e.g. "linkedin:prospect"
+  strength   Int      @default(1) // 1=weak, 2=acquaintance, 3=strong
+
+  @@index([projectId, fromHandle])
+  @@index([projectId, toHandle])
+}
+
+// ── Cold outreach Campaigns (Woodpecker-style) ────────────────────────────────
+
+model Campaign {
+  id        String  @id @default(cuid())
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  name      String
+  status    String  @default("draft") // draft | running | paused | completed
+
+  // Delivery / sending settings
+  mailbox             String  @default("")            // sending identity
+  inboxRotationJson   String  @default("[]")          // additional mailboxes for rotation
+  dailyLimit          Int     @default(50)
+  intervalMinMinutes  Int     @default(5)             // randomized sending frequency floor
+  intervalMaxMinutes  Int     @default(15)            // randomized sending frequency ceiling
+  sendDaysJson        String  @default("[1,2,3,4,5]") // 0=Sun .. 6=Sat
+  sendFrom            String  @default("09:00")
+  sendTo              String  @default("17:00")
+  timezone            String  @default("Europe/London")
+  perProspectTimezone Boolean @default(false)         // timezone-based sending
+  adaptiveSending     Boolean @default(true)          // detect provider limits, throttle
+
+  // Behaviour / conditions
+  stopOnReply         Boolean @default(true)          // in-thread follow-up stop
+  stopOnClick         Boolean @default(false)
+  autoreplyReschedule Boolean @default(true)          // OOO → reschedule follow-up
+
+  // Tracking
+  trackOpens     Boolean @default(true)
+  trackClicks    Boolean @default(true)
+  trackingDomain String  @default("")                 // custom tracking domain
+
+  // Deliverability + compliance
+  warmupEnabled    Boolean @default(false)
+  spamCheck        Boolean @default(true)
+  unsubMessage     String  @default("")
+  detectEmptyFields Boolean @default(true)            // don't send if a snippet is empty
+  detectDuplicates Boolean  @default(true)
+  blacklistJson    String   @default("[]")            // domains/addresses to exclude
+
+  createdAt DateTime @default(now())
+
+  steps       CampaignStep[]
+  enrollments CampaignEnrollment[]
+  sends       CampaignSend[]
+
+  @@index([projectId, status])
+}
+
+// One row per outbound campaign send — powers daily-limit counting, interval throttle, history.
+model CampaignSend {
+  id           String   @id @default(cuid())
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId   String
+  enrollmentId String
+  versionId    String
+  channelKind  String
+  trigger      String   @default("manual") // manual | auto
+  at           DateTime @default(now())
+
+  @@index([campaignId, at])
+}
+
+model CampaignStep {
+  id         String  @id @default(cuid())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId String
+  order      Int      // 1..16
+  channel    String   @default("email") // email | linkedin-dm | linkedin-connect | call | sms | manual
+  delayDays  Int      @default(0)        // wait after previous step
+  condition  String   @default("always") // always | if-no-reply | if-no-open | if-opened | if-clicked
+
+  // Wait-step: instead of skipping when `condition` (if-opened/if-clicked) is unmet, hold the
+  // enrollment here and re-check until it flips or the timeout elapses.
+  waitForCondition Boolean @default(false)
+  waitTimeoutHours Int     @default(72)     // max wait before the fallback fires
+  onTimeout        String  @default("skip") // skip | send — fallback when the wait times out
+
+  versions CampaignStepVersion[]
+
+  @@index([campaignId, order])
+}
+
+model CampaignStepVersion {
+  id      String @id @default(cuid())
+  step    CampaignStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  stepId  String
+  label   String @default("A") // A..E (up to 5 A/B versions)
+  subject String @default("")
+  body    String @default("")
+
+  // per-version stats
+  sent    Int @default(0)
+  opened  Int @default(0)
+  clicked Int @default(0)
+  replied Int @default(0)
+
+  @@index([stepId])
+}
+
+model CampaignEnrollment {
+  id         String   @id @default(cuid())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId String
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  prospectId String
+
+  status       String @default("active") // active | replied | bounced | completed | paused | opted-out
+  interest     String @default("none")   // none | interested | maybe | not-interested | autoreply | out-of-office | bounced
+  currentStep  Int    @default(0)
+  nextActionAt DateTime?
+  lastEventAt  DateTime?
+  openedAt     DateTime?                  // first open across this enrollment's sends (for if-opened conditions)
+  clickedAt    DateTime?                  // first click (for if-clicked conditions)
+  waitingSince DateTime?                  // when the current wait-step started waiting; null when not parked
+  createdAt    DateTime @default(now())
+
+  @@unique([campaignId, prospectId])
+  @@index([campaignId, status])
+}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Reach</title>
+    <script>
+      // Apply saved theme before paint (no flash). Default: light ("white").
+      try {
+        if ((localStorage.getItem('reach-theme') || 'light') === 'dark')
+          document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover" class="bg-bg text-ink">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>
