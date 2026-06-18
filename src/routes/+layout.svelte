@@ -68,7 +68,7 @@
             <span class="font-medium">{data.active?.name ?? 'No project'}</span>
             <span class="text-ink-dim">▾</span>
           </button>
-          <div class="absolute left-0 top-full mt-1 w-64 card p-1 hidden group-hover:block group-focus-within:block z-30">
+          <div class="absolute left-0 top-full mt-1 w-64 card shadow-pop p-1 hidden group-hover:block group-focus-within:block z-30">
             {#each data.projects as p}
               <button
                 class="w-full text-left px-3 py-2 rounded-lg text-sm row-hover {p.id === data.active?.id ? 'bg-bg-elev text-ink' : 'text-ink-mute'}"

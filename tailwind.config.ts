@@ -34,10 +34,25 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif']
       },
       boxShadow: {
-        card: '0 1px 0 rgba(255,255,255,0.02) inset, 0 1px 2px rgba(0,0,0,0.4)'
+        // Soft, layered shadows that read well on the light default and stay subtle on dark
+        // (where borders carry separation). Untitled-UI-ish.
+        card: '0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04)',
+        'card-hover': '0 8px 16px -4px rgba(16,24,40,0.08), 0 4px 6px -2px rgba(16,24,40,0.04)',
+        pop: '0 12px 28px -6px rgba(16,24,40,0.16), 0 4px 8px -2px rgba(16,24,40,0.08)',
+        btn: '0 1px 2px rgba(16,24,40,0.06)',
+        brand: '0 1px 2px rgba(16,24,40,0.10), 0 2px 6px -1px rgba(22,163,74,0.30)'
       },
       borderRadius: {
-        xl: '12px'
+        xl: '12px',
+        '2xl': '16px'
+      },
+      keyframes: {
+        shimmer: { '100%': { transform: 'translateX(100%)' } },
+        'fade-in-up': { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+      },
+      animation: {
+        shimmer: 'shimmer 1.4s infinite',
+        'fade-in-up': 'fade-in-up 0.18s ease-out'
       }
     }
   }
