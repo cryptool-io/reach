@@ -7,6 +7,7 @@ import { MODES, INTENT_LABEL } from '$lib/types';
 import { parseFieldSchema, normalizeKey, type FieldDef } from '$lib/presets';
 import { allProjectPrompts, PROMPT_DEFAULTS } from '$lib/prompts';
 import { hashPassword, verifyPassword } from '$lib/auth';
+import { llmStatus } from '$lib/llm';
 
 // Tail of the last GitHub deploy run (written by deploy/pull-deploy.sh on the server).
 function readDeployLog(): string {
@@ -22,7 +23,8 @@ export const load: PageServerLoad = async ({ locals }) => {
     user: locals.user ?? null,
     deployLog: readDeployLog(),
     // Only offer the GitHub deploy once the app dir is actually a git clone on the server.
-    canDeploy: process.env.NODE_ENV === 'production' && existsSync(join(process.cwd(), '.git'))
+    canDeploy: process.env.NODE_ENV === 'production' && existsSync(join(process.cwd(), '.git')),
+    ai: llmStatus()
   };
   if (!locals.activeProjectId)
     return { project: null, channels: [], assets: [], fields: [], prompts: [], intentLabel: INTENT_LABEL, ...account };

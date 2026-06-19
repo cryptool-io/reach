@@ -152,6 +152,22 @@
     </div>
   {/if}
 
+  <!-- AI provider -->
+  <div class="card p-5">
+    <h3 class="text-sm font-medium mb-1">AI provider</h3>
+    {#if data.ai.enabled}
+      <p class="text-sm text-ink-mute mb-3">Active: <span class="chip-good">{data.ai.active}</span>{#if data.ai.fallbacks.length} · falls back to {data.ai.fallbacks.join(', ')}{/if}. Powers Composer, Lead Finder, Intelligence, Call Debrief &amp; Studio.</p>
+    {:else}
+      <p class="text-sm text-ink-mute mb-3">No AI provider configured — the agents (Composer, Lead Finder, Intelligence, Call Debrief, Studio) are <strong>dormant</strong>. Add a <strong>free</strong> key to the server <code>.env</code> and restart.</p>
+    {/if}
+    <div class="flex flex-wrap gap-2 mb-3">
+      {#each data.ai.available as p}
+        <span class="chip {p.configured ? 'chip-good' : 'chip-mute'}">{p.label}{p.free ? ' · free' : ''}{p.configured ? ' ✓' : ''}</span>
+      {/each}
+    </div>
+    <p class="text-xs text-ink-dim">Free keys: <a class="text-brand-hi hover:underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Gemini</a> · <a class="text-brand-hi hover:underline" href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq</a> · <a class="text-brand-hi hover:underline" href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a> · <a class="text-brand-hi hover:underline" href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">Mistral</a>. Set one in <code>.env</code> and the app auto-uses it (priority + fallback).</p>
+  </div>
+
   <!-- Account (always available when signed in) -->
   {#if data.user}
     <div class="card p-5">

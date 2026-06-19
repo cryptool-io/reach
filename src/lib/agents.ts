@@ -1,7 +1,7 @@
 // Shared runner for the Claude-powered agents (intelligence, debrief, sourcer, deck, data room).
 // Each agent = an editable prompt slot (see src/lib/prompts.ts) + JSON output parsing.
 
-import { complete } from '$lib/anthropic';
+import { complete } from '$lib/llm';
 import { effectivePrompt } from '$lib/prompts';
 
 function fillVars(tpl: string, vars: Record<string, string>): string {
@@ -33,7 +33,8 @@ export async function runJsonAgent<T = unknown>(
     model: opts.model ?? 'smart',
     system: 'You are a precise assistant. Return ONLY valid JSON matching the requested schema — no prose, no markdown fences. Never fabricate facts, numbers, names, or contact details beyond what the input provides.',
     user,
-    maxTokens: opts.maxTokens ?? 1500
+    maxTokens: opts.maxTokens ?? 1500,
+    json: true
   });
   return { data: parseJson<T>(raw), raw };
 }

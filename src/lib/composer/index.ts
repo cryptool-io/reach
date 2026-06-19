@@ -1,4 +1,4 @@
-import { complete } from '$lib/anthropic';
+import { complete } from '$lib/llm';
 import { db } from '$lib/db';
 import type { Intent, ChannelKind } from '$lib/types';
 import { CHANNEL_LABEL, INTENT_LABEL } from '$lib/types';
@@ -53,9 +53,10 @@ export async function compose(input: ComposeInput): Promise<Draft[]> {
   const out = await complete({
     model: 'smart',
     system:
-      'You are Reach, a Claude-powered outreach composer. Return ONLY valid JSON matching the requested schema, no prose around it.',
+      'You are Reach, an AI-powered outreach composer. Return ONLY valid JSON matching the requested schema, no prose around it.',
     user,
-    maxTokens: 1500
+    maxTokens: 1500,
+    json: true
   });
 
   return parseDrafts(out);
