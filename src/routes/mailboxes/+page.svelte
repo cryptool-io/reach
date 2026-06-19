@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { diagnoseSmtpError } from '$lib/smtpHelp';
   let { data, form } = $props();
 
   let mode = $state<'list' | 'choose' | 'add' | 'bulk'>('list');
@@ -60,6 +61,15 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
   {#if form?.error}<div class="card p-3 mb-3 text-sm text-accent-bad">{form.error}</div>{/if}
   {#if form?.ok === 'add' || form?.ok === 'bulk' || form?.ok === 'testall' || form?.ok === 'test-pass' || form?.ok === 'test-fail'}
     <div class="card p-3 mb-3 text-sm {form.ok === 'test-fail' ? 'text-accent-bad' : 'text-accent-good'}">{form.detail}</div>
+  {/if}
+  {#if form?.ok === 'test-fail' || (form?.ok === 'add' && /fail/i.test(form.detail ?? ''))}
+    {@const help = diagnoseSmtpError(form.detail)}
+    {#if help}
+      <div class="card p-4 mb-3 text-xs">
+        <div class="font-medium text-accent-bad mb-1">How to fix — {help.summary}</div>
+        <ol class="list-decimal pl-4 space-y-0.5 text-ink-mute">{#each help.steps as s}<li>{s}</li>{/each}</ol>
+      </div>
+    {/if}
   {/if}
 
   {#if mode === 'choose'}
@@ -153,7 +163,23 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
       <tbody>
         {#each data.mailboxes as mb}
           <tr class="border-t border-bg-border">
-            <td class="px-4 py-2"><div class="font-medium">{mb.fromEmail}</div><div class="text-xs text-ink-dim">{mb.label}{mb.lastError ? ` · ${mb.lastError}` : ''}</div></td>
+            <td class="px-4 py-2 max-w-md">
+              <div class="font-medium">{mb.fromEmail}</div>
+              <div class="text-xs text-ink-dim">{mb.label}</div>
+              {#if mb.lastError}
+                {@const help = diagnoseSmtpError(mb.lastError)}
+                <div class="text-xs text-accent-bad mt-1 break-words">{mb.lastError}</div>
+                {#if help}
+                  <details class="mt-1">
+                    <summary class="text-xs text-brand-hi cursor-pointer select-none">How to fix →</summary>
+                    <div class="mt-1.5 p-2 rounded-lg bg-bg-elev/60 border border-bg-border">
+                      <div class="text-xs font-medium mb-1">{help.summary}</div>
+                      <ol class="list-decimal pl-4 space-y-0.5 text-xs text-ink-mute">{#each help.steps as s}<li>{s}</li>{/each}</ol>
+                    </div>
+                  </details>
+                {/if}
+              {/if}
+            </td>
             <td class="px-4 py-2"><span class={mb.status === 'active' ? 'chip-good' : mb.status === 'error' ? 'chip-bad' : 'chip-mute'}>{mb.status}</span></td>
             <td class="px-4 py-2 text-ink-mute">{mb.sentToday}/{mb.effLimit}</td>
             <td class="px-4 py-2 text-ink-mute">{mb.dailyLimit}{mb.warmupEnabled ? ' · warming' : ''}</td>

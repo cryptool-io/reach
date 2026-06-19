@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { diagnoseSmtpError } from '$lib/smtpHelp';
   let { data, form } = $props();
   const scoreColor = (s: number) => (s >= 80 ? 'text-accent-good' : s >= 50 ? 'text-accent-warn' : 'text-accent-bad');
 </script>
@@ -88,7 +89,22 @@
           <tbody>
             {#each data.mailboxes as mb}
               <tr class="border-t border-bg-border">
-                <td class="px-4 py-2"><div class="font-medium">{mb.fromEmail}</div>{#if mb.lastError}<div class="text-xs text-accent-bad">{mb.lastError}</div>{/if}</td>
+                <td class="px-4 py-2 max-w-md">
+                  <div class="font-medium">{mb.fromEmail}</div>
+                  {#if mb.lastError}
+                    {@const help = diagnoseSmtpError(mb.lastError)}
+                    <div class="text-xs text-accent-bad break-words">{mb.lastError}</div>
+                    {#if help}
+                      <details class="mt-1">
+                        <summary class="text-xs text-brand-hi cursor-pointer select-none">How to fix →</summary>
+                        <div class="mt-1.5 p-2 rounded-lg bg-bg-elev/60 border border-bg-border">
+                          <div class="text-xs font-medium mb-1">{help.summary}</div>
+                          <ol class="list-decimal pl-4 space-y-0.5 text-xs text-ink-mute">{#each help.steps as s}<li>{s}</li>{/each}</ol>
+                        </div>
+                      </details>
+                    {/if}
+                  {/if}
+                </td>
                 <td class="px-4 py-2"><span class={mb.status === 'active' ? 'chip-good' : mb.status === 'error' ? 'chip-bad' : 'chip-mute'}>{mb.status}</span></td>
                 <td class="px-4 py-2 text-ink-mute">{mb.warmupEnabled ? 'ramping' : 'off'}</td>
                 <td class="px-4 py-2 text-ink-mute">{mb.sentToday}/{mb.effLimit}</td>
