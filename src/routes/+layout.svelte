@@ -28,6 +28,7 @@
       label: 'Campaigns', href: '/campaigns', icon: '➤',
       children: [
         { href: '/campaigns', label: 'Campaigns', icon: '➤' },
+        { href: '/reports', label: 'Reports', icon: '◔' },
         { href: '/cadences', label: 'Cadences', icon: '⟳' },
         { href: '/studio', label: 'Studio', icon: '◳' }
       ]
