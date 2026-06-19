@@ -43,8 +43,9 @@
     },
     { label: 'Inbox', href: '/conversations', icon: '✉' },
     {
-      label: 'Deliverability', href: '/mailboxes', icon: '@',
+      label: 'Deliverability', href: '/deliverability', icon: '◉',
       children: [
+        { href: '/deliverability', label: 'Overview', icon: '◉' },
         { href: '/mailboxes', label: 'Mailboxes', icon: '@' },
         { href: '/connections', label: 'Channels', icon: '⇆' }
       ]
