@@ -32,10 +32,11 @@ export const SMTP_PRESETS: SmtpProviderPreset[] = [
     imapHost: 'imap.gmail.com',
     imapPort: 993,
     steps: [
-      'Turn on 2-Step Verification at myaccount.google.com → Security.',
-      'Open myaccount.google.com/apppasswords and create an App password (app: Mail).',
-      'Copy the 16-character password Google shows you.',
-      'Username = your full Gmail address. Password = that App password (not your normal password).'
+      'Go to myaccount.google.com → Security and turn ON 2-Step Verification.',
+      'Open myaccount.google.com/apppasswords, create an app password (name it "Reach"), and copy the 16-character code.',
+      'From email & Username = your full Gmail / Workspace address.',
+      'Password = that 16-character app password (NOT your normal password).',
+      'Host/port are pre-filled (smtp.gmail.com : 465, SSL on). Click "Add & test".'
     ]
   },
   {
@@ -47,9 +48,28 @@ export const SMTP_PRESETS: SmtpProviderPreset[] = [
     imapHost: 'outlook.office365.com',
     imapPort: 993,
     steps: [
-      'Use your full email address as the username.',
-      'If your org enforces MFA, create an App password in Microsoft account → Security.',
-      'SMTP AUTH must be enabled for the mailbox (admins: Microsoft 365 admin center → Active users → Mail).'
+      'An admin must enable SMTP AUTH for the mailbox: Microsoft 365 admin → Users → (the mailbox) → Mail → "Manage email apps" → tick "Authenticated SMTP" → Save. (PowerShell: Set-CASMailbox -Identity you@domain -SmtpClientAuthenticationDisabled $false)',
+      'If the account uses MFA, create an app password at mysignins.microsoft.com/security-info → Add → App password (needs Security Defaults turned off).',
+      'Username = your full email address. Password = the app password (or the normal password if there is no MFA).',
+      'Host/port are pre-filled (smtp.office365.com : 587, STARTTLS). Wait ~15 min after enabling SMTP AUTH, then click "Add & test".',
+      'Still getting 535? Your tenant blocks SMTP AUTH — use the Amazon SES option instead.'
+    ]
+  },
+  {
+    id: 'ses',
+    label: 'Amazon SES',
+    host: 'email-smtp.us-east-1.amazonaws.com',
+    port: 587,
+    secure: false,
+    imapHost: '',
+    imapPort: 993,
+    steps: [
+      'In AWS → SES → "Verified identities", verify your sending domain (add the DKIM CNAME records it gives you) — or at least verify your From address.',
+      'Leave the SES sandbox: SES → Account dashboard → "Request production access" (so you can email anyone, not only verified addresses).',
+      'SES → "SMTP settings" → "Create SMTP credentials" → download the SMTP username + password (shown only once).',
+      'Set the Host region to match your SES region, e.g. email-smtp.eu-west-1.amazonaws.com (default here is us-east-1).',
+      'From email = your verified address. Username + Password = the SES SMTP credentials. Port 587, STARTTLS. Click "Add & test".',
+      'Note: SES only sends — replies arrive in your normal inbox for that address, so you can leave IMAP blank.'
     ]
   },
   {
@@ -61,9 +81,10 @@ export const SMTP_PRESETS: SmtpProviderPreset[] = [
     imapHost: '',
     imapPort: 993,
     steps: [
-      "Get SMTP host, port, and whether SSL/TLS is required from your email provider.",
-      'Port 465 = SSL (secure on). Port 587 = STARTTLS (secure off).',
-      'Username is usually your full email address.'
+      'Get the SMTP host, port, and whether SSL/TLS is required from your email provider.',
+      'Port 465 = SSL/TLS ON. Port 587 = STARTTLS (SSL/TLS off).',
+      'Username is usually your full email address; use an app password if the account has 2FA/MFA.',
+      'Fill in host / port / username / password, then click "Add & test".'
     ]
   }
 ];

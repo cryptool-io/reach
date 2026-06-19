@@ -79,7 +79,7 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
       <div class="grid sm:grid-cols-2 gap-3">
         {#each data.presets as p}
           <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => chooseProvider(p.id)}>
-            <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">{p.id === 'gmail' ? '✉' : p.id === 'outlook' ? '✉' : '⚙'}</div>
+            <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">{p.id === 'gmail' ? '✉' : p.id === 'outlook' ? '✉' : p.id === 'ses' ? '☁' : '⚙'}</div>
             <div><div class="font-medium">{p.id === 'custom' ? 'Connect via SMTP / IMAP' : p.label}</div><div class="text-xs text-ink-dim">{p.host || 'Any provider — enter host/port'}</div></div>
           </button>
         {/each}
@@ -92,12 +92,15 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
   {:else if mode === 'add'}
     <div class="card p-5 mb-5">
       <button type="button" class="text-xs text-ink-mute hover:text-ink mb-3" onclick={() => (mode = 'choose')}>← back to providers</button>
-      {#if chosenPreset === 'gmail' || chosenPreset === 'outlook'}
-        <div class="chip-warn inline-flex mb-3">Use an app password, not your login password. (One-click OAuth lands when Google/Microsoft OAuth keys are set.)</div>
+      {#if presetObj?.steps?.length}
+        <div class="rounded-lg bg-bg-elev/50 border border-bg-border p-3 mb-4">
+          <div class="text-xs font-semibold mb-1.5">How to set up {presetObj.label}</div>
+          <ol class="list-decimal pl-4 space-y-1 text-xs text-ink-mute">{#each presetObj.steps as s}<li>{s}</li>{/each}</ol>
+        </div>
       {/if}
       <form method="POST" action="?/add" use:enhance={() => async ({ update }) => { await update(); mode = 'list'; }} class="space-y-3">
         <div><span class="label">Provider</span>
-          <select class="input" bind:value={chosenPreset}><option value="">Custom / other host</option>{#each data.presets as p}<option value={p.id}>{p.label}</option>{/each}</select>
+          <select class="input" bind:value={chosenPreset}>{#each data.presets as p}<option value={p.id}>{p.label}</option>{/each}</select>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div><span class="label">Label</span><input name="label" class="input" placeholder="Inbox 1" /></div>
