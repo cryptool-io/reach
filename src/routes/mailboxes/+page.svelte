@@ -7,6 +7,14 @@
   let chosenPreset = $state('');
   const presetObj = $derived(data.presets.find((p) => p.id === chosenPreset));
   function chooseProvider(id: string) { chosenPreset = id; mode = 'add'; }
+  const GRAPH_STEPS = [
+    'portal.azure.com → Microsoft Entra ID → App registrations → New registration. Name it "Reach", single tenant, Register.',
+    'On the Overview page, copy the Application (client) ID and the Directory (tenant) ID.',
+    'Certificates & secrets → New client secret → copy the secret VALUE (shown only once).',
+    'API permissions → Add a permission → Microsoft Graph → Application permissions → Mail.Send → Add, then click "Grant admin consent".',
+    '(Recommended) Limit which mailboxes it can send as with an Application Access Policy (New-ApplicationAccessPolicy in Exchange Online PowerShell).',
+    'Enter the Tenant ID, Client ID, Client secret and a From email (a real mailbox in your tenant) below, then Add & test.'
+  ];
   let domains = $derived(
     Object.entries(
       (data.mailboxes as any[]).reduce((acc: Record<string, number>, mb) => {
@@ -83,6 +91,10 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
             <div><div class="font-medium">{p.id === 'custom' ? 'Connect via SMTP / IMAP' : p.label}</div><div class="text-xs text-ink-dim">{p.host || 'Any provider — enter host/port'}</div></div>
           </button>
         {/each}
+        <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => chooseProvider('graph')}>
+          <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">🪟</div>
+          <div><div class="font-medium">Microsoft 365 (Graph API)</div><div class="text-xs text-ink-dim">Durable M365 sending — no SMTP</div></div>
+        </button>
         <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => (mode = 'bulk')}>
           <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">⇪</div>
           <div><div class="font-medium">Add in bulk (CSV)</div><div class="text-xs text-ink-dim">Connect dozens at once</div></div>
@@ -92,6 +104,25 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
   {:else if mode === 'add'}
     <div class="card p-5 mb-5">
       <button type="button" class="text-xs text-ink-mute hover:text-ink mb-3" onclick={() => (mode = 'choose')}>← back to providers</button>
+      {#if chosenPreset === 'graph'}
+        <div class="rounded-lg bg-bg-elev/50 border border-bg-border p-3 mb-4">
+          <div class="text-xs font-semibold mb-1.5">How to set up Microsoft 365 (Graph API)</div>
+          <ol class="list-decimal pl-4 space-y-1 text-xs text-ink-mute">{#each GRAPH_STEPS as s}<li>{s}</li>{/each}</ol>
+        </div>
+        <form method="POST" action="?/addGraph" use:enhance={() => async ({ update }) => { await update(); mode = 'list'; }} class="space-y-3">
+          <div class="grid grid-cols-2 gap-2">
+            <div><span class="label">Label</span><input name="label" class="input" placeholder="M365 — Ron" /></div>
+            <div><span class="label">From name</span><input name="fromName" class="input" placeholder="Ron at Cryptool" /></div>
+            <div class="col-span-2"><span class="label">From email (a mailbox in your tenant)</span><input name="fromEmail" class="input" placeholder="ron@cryptool.io" required /></div>
+            <div class="col-span-2"><span class="label">Directory (tenant) ID</span><input name="tenantId" class="input" required /></div>
+            <div><span class="label">Application (client) ID</span><input name="clientId" class="input" required /></div>
+            <div><span class="label">Client secret</span><input name="clientSecret" type="password" class="input" required /></div>
+            <div><span class="label">Daily limit</span><input name="dailyLimit" type="number" class="input" value="40" /></div>
+            <div class="flex items-end"><label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="warmupEnabled" checked /> Warm-up</label></div>
+          </div>
+          <button class="btn-primary" type="submit">Add &amp; test</button>
+        </form>
+      {:else}
       {#if presetObj?.steps?.length}
         <div class="rounded-lg bg-bg-elev/50 border border-bg-border p-3 mb-4">
           <div class="text-xs font-semibold mb-1.5">How to set up {presetObj.label}</div>
@@ -119,6 +150,7 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
         </div>
         <button class="btn-primary" type="submit">Add &amp; test</button>
       </form>
+      {/if}
     </div>
   {:else if mode === 'bulk'}
     <div class="card p-5 mb-5">
@@ -167,7 +199,7 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
         {#each data.mailboxes as mb}
           <tr class="border-t border-bg-border">
             <td class="px-4 py-2 max-w-md">
-              <div class="font-medium">{mb.fromEmail}</div>
+              <div class="font-medium">{mb.fromEmail}{#if mb.provider === 'graph'} <span class="chip-mute align-middle">Graph</span>{/if}</div>
               <div class="text-xs text-ink-dim">{mb.label}</div>
               {#if mb.lastError}
                 {@const help = diagnoseSmtpError(mb.lastError)}

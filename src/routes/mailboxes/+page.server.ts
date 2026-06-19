@@ -1,10 +1,9 @@
 import type { Actions, PageServerLoad } from './$types';
 import { db } from '$lib/db';
 import { fail } from '@sveltejs/kit';
-import { saveMailbox, testMailbox, effectiveDailyLimit, remainingToday, projectCapacity, type MailboxCreds } from '$lib/mailboxes';
+import { saveMailbox, testMailbox, effectiveDailyLimit, remainingToday, projectCapacity, sendFromMailbox, type MailboxCreds } from '$lib/mailboxes';
 import { SMTP_PRESETS } from '$lib/channels/email/smtp';
-import { sendSmtp } from '$lib/channels/connections';
-import { decryptJson } from '$lib/crypto';
+import { encryptJson } from '$lib/crypto';
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (!locals.activeProjectId) return { mailboxes: [], capacity: null, presets: SMTP_PRESETS, project: null };
@@ -12,7 +11,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   const rows = await db.mailbox.findMany({ where: { projectId: locals.activeProjectId }, orderBy: { createdAt: 'asc' } });
   const today = new Date().toISOString().slice(0, 10);
   const mailboxes = rows.map((mb) => ({
-    id: mb.id, label: mb.label, fromEmail: mb.fromEmail, fromName: mb.fromName,
+    id: mb.id, label: mb.label, fromEmail: mb.fromEmail, fromName: mb.fromName, provider: mb.provider,
     dailyLimit: mb.dailyLimit, warmupEnabled: mb.warmupEnabled, status: mb.status, lastError: mb.lastError,
     effLimit: effectiveDailyLimit(mb), remaining: remainingToday(mb),
     sentToday: mb.sentDate === today ? mb.sentToday : 0
@@ -59,6 +58,38 @@ export const actions: Actions = {
     });
     const t = await testMailbox(mb.id);
     return { ok: 'add', detail: t.ok ? `Connected ${creds.fromEmail}` : `Saved, but test failed: ${t.detail}` };
+  },
+
+  // Microsoft 365 via Graph API (app-only). Stores Azure app creds instead of SMTP.
+  addGraph: async ({ request, locals }) => {
+    if (!locals.activeProjectId) return fail(400);
+    const f = await request.formData();
+    const creds = {
+      type: 'graph' as const,
+      tenantId: String(f.get('tenantId') ?? '').trim(),
+      clientId: String(f.get('clientId') ?? '').trim(),
+      clientSecret: String(f.get('clientSecret') ?? '').trim(),
+      fromName: String(f.get('fromName') ?? ''),
+      fromEmail: String(f.get('fromEmail') ?? '').trim()
+    };
+    if (!creds.tenantId || !creds.clientId || !creds.clientSecret || !creds.fromEmail)
+      return fail(400, { error: 'Tenant ID, client ID, client secret and from-email are all required.' });
+    const warmup = f.get('warmupEnabled') === 'on';
+    const mb = await db.mailbox.create({
+      data: {
+        projectId: locals.activeProjectId,
+        provider: 'graph',
+        label: String(f.get('label') ?? '') || creds.fromEmail,
+        fromName: creds.fromName,
+        fromEmail: creds.fromEmail,
+        credentialsJson: encryptJson(creds),
+        dailyLimit: parseInt(String(f.get('dailyLimit') ?? ''), 10) || 40,
+        warmupEnabled: warmup,
+        warmupStartedAt: warmup ? new Date() : null
+      }
+    });
+    const t = await testMailbox(mb.id);
+    return { ok: 'add', detail: t.ok ? `Connected ${creds.fromEmail} via Microsoft Graph` : `Saved, but test failed: ${t.detail}` };
   },
 
   // Connect many mailboxes at once from CSV (one per row).
@@ -138,10 +169,7 @@ export const actions: Actions = {
     if (!mbs.length) return fail(400, { error: 'add at least one mailbox first' });
     const results: { from: string; ok: boolean; detail: string }[] = [];
     for (const mb of mbs) {
-      const creds = decryptJson<MailboxCreds>(mb.credentialsJson);
-      if (!creds) { results.push({ from: mb.fromEmail, ok: false, detail: 'no credentials' }); continue; }
-      const rr = await sendSmtp({ ...creds, fromName: creds.fromName || mb.fromName, fromEmail: creds.fromEmail || mb.fromEmail },
-        { to, subject: 'Reach mailbox test ✅', body: `Test from ${mb.fromEmail} via Reach inbox rotation.` });
+      const rr = await sendFromMailbox(mb, { to, subject: 'Reach mailbox test ✅', body: `Test from ${mb.fromEmail} via Reach.` });
       results.push({ from: mb.fromEmail, ok: rr.ok, detail: rr.detail });
     }
     return { ok: 'sendtest', results };

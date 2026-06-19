@@ -4,6 +4,7 @@
 import { db } from '$lib/db';
 import { encryptJson, decryptJson } from '$lib/crypto';
 import { sendSmtp, verifySmtp, type SmtpCreds } from '$lib/channels/email/smtp';
+import { sendGraphMail, verifyGraph, type GraphCreds } from '$lib/channels/email/graph';
 import type { Mailbox } from '@prisma/client';
 
 export interface MailboxCreds extends SmtpCreds {
@@ -70,19 +71,26 @@ export interface ProjectSendResult {
 }
 
 /** Send one email through a rotated mailbox. Returns no-capacity when every mailbox is at its cap. */
+/** Send one email through a specific mailbox, branching on its provider (SMTP or Microsoft Graph). */
+export async function sendFromMailbox(
+  mb: Mailbox,
+  msg: { to: string; subject: string; body: string; html?: string }
+): Promise<{ ok: boolean; detail: string }> {
+  const creds = decryptJson<MailboxCreds & GraphCreds>(mb.credentialsJson);
+  if (!creds) return { ok: false, detail: 'no credentials' };
+  if (mb.provider === 'graph' || creds.type === 'graph') {
+    return sendGraphMail({ ...creds, fromEmail: creds.fromEmail || mb.fromEmail, fromName: creds.fromName || mb.fromName }, msg);
+  }
+  return sendSmtp({ ...creds, fromName: creds.fromName || mb.fromName, fromEmail: creds.fromEmail || mb.fromEmail }, msg);
+}
+
 export async function sendProjectEmail(
   projectId: string,
   msg: { to: string; subject: string; body: string; html?: string }
 ): Promise<ProjectSendResult> {
   const mb = await pickMailbox(projectId);
   if (!mb) return { ok: false, reason: 'no-capacity' };
-  const creds = decryptJson<MailboxCreds>(mb.credentialsJson);
-  if (!creds) return { ok: false, reason: 'send-failed', detail: 'no credentials' };
-
-  const r = await sendSmtp(
-    { ...creds, fromName: creds.fromName || mb.fromName, fromEmail: creds.fromEmail || mb.fromEmail },
-    msg
-  );
+  const r = await sendFromMailbox(mb, msg);
   if (r.ok) {
     await recordSend(mb);
     return { ok: true, mailbox: mb.fromEmail };
@@ -115,9 +123,9 @@ export async function saveMailbox(
 export async function testMailbox(id: string): Promise<{ ok: boolean; detail: string }> {
   const mb = await db.mailbox.findUnique({ where: { id } });
   if (!mb) return { ok: false, detail: 'not found' };
-  const creds = decryptJson<MailboxCreds>(mb.credentialsJson);
+  const creds = decryptJson<MailboxCreds & GraphCreds>(mb.credentialsJson);
   if (!creds) return { ok: false, detail: 'no credentials' };
-  const r = await verifySmtp(creds);
+  const r = mb.provider === 'graph' || creds.type === 'graph' ? await verifyGraph(creds) : await verifySmtp(creds);
   await db.mailbox.update({
     where: { id },
     data: { status: r.ok ? 'active' : 'error', lastError: r.ok ? '' : r.detail, lastTestedAt: new Date() }

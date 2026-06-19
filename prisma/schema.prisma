@@ -72,9 +72,10 @@ model Mailbox {
   project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId       String
   label           String   @default("")
+  provider        String   @default("smtp")     // smtp | graph (Microsoft Graph sendMail)
   fromName        String   @default("")
   fromEmail       String
-  credentialsJson String   @default("")        // encrypted {host,port,secure,user,pass,imapHost,imapPort}
+  credentialsJson String   @default("")        // encrypted SMTP creds, or {type:'graph',tenantId,clientId,clientSecret,fromEmail}
   dailyLimit      Int      @default(40)
   warmupEnabled   Boolean  @default(true)
   warmupStartedAt DateTime?
