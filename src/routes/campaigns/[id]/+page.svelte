@@ -6,12 +6,12 @@
   let { campaign, enrollments, prospects, queue, stats, tab } = $derived(data);
 
   const STEP_CHANNELS = [
-    { v: 'email', l: 'Email' },
-    { v: 'linkedin-connect', l: 'LinkedIn — connect' },
-    { v: 'linkedin-dm', l: 'LinkedIn — message' },
-    { v: 'call', l: 'Call (task)' },
-    { v: 'sms', l: 'SMS' },
-    { v: 'manual', l: 'Manual task' }
+    { v: 'email', l: 'Email', icon: '✉' },
+    { v: 'linkedin-connect', l: 'LinkedIn connect', icon: '🔗' },
+    { v: 'linkedin-dm', l: 'LinkedIn message', icon: '💬' },
+    { v: 'call', l: 'Call', icon: '☎' },
+    { v: 'sms', l: 'SMS', icon: '📱' },
+    { v: 'manual', l: 'Manual task', icon: '✓' }
   ];
   const CONDITIONS = [
     { v: 'always', l: 'Always send' },
@@ -30,6 +30,30 @@
 
   function copy(s: string) {
     navigator.clipboard.writeText(s);
+  }
+
+  // Sequence editor state: active A/B version + locally-chosen channel per step.
+  let activeVer = $state<Record<string, number>>({});
+  let chan = $state<Record<string, string>>({});
+  const chanOf = (step: any) => chan[step.id] ?? step.channel;
+  const chLabel = (v: string) => STEP_CHANNELS.find((c) => c.v === v)?.l ?? v;
+  const chIcon = (v: string) => STEP_CHANNELS.find((c) => c.v === v)?.icon ?? '✉';
+  function pickChannel(step: any, v: string) {
+    chan[step.id] = v;
+    const form = document.getElementById('sf-' + step.id) as HTMLFormElement | null;
+    const inp = form?.querySelector('input[name="channel"]') as HTMLInputElement | null;
+    if (inp) inp.value = v;
+    form?.requestSubmit();
+  }
+  function insertSnippet(id: string, text: string) {
+    const el = document.getElementById(id) as HTMLTextAreaElement | null;
+    if (!el) return;
+    const s = el.selectionStart ?? el.value.length;
+    const e = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, s) + text + el.value.slice(e);
+    el.selectionStart = el.selectionEnd = s + text.length;
+    el.focus();
+    el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   const rate = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
@@ -103,77 +127,97 @@
       Snippets: {#each SNIPPETS as s}<button class="chip-mute mr-1 mb-1" onclick={() => copy(s)}>{s}</button>{/each} · click to copy ·
       add a fallback with <code>{`{{first_name|there}}`}</code> so blank fields read cleanly.
     </div>
-    <div class="space-y-4">
+    <div class="space-y-6 max-w-3xl mx-auto">
       {#each campaign.steps as step, i}
-        <div class="card p-4">
-          <div class="flex items-center gap-3 mb-3">
-            <span class="chip-brand">Step {step.order}</span>
-            <form method="POST" action="?/updateStep" use:enhance class="flex items-center gap-2 flex-wrap">
-              <input type="hidden" name="stepId" value={step.id} />
-              <select name="channel" class="input !py-1 !w-auto" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}>
-                {#each STEP_CHANNELS as c}<option value={c.v} selected={step.channel === c.v}>{c.l}</option>{/each}
-              </select>
+        {@const cur = chanOf(step)}
+        {@const av = activeVer[step.id] ?? 0}
+        {@const ver = step.versions[av] ?? step.versions[0]}
+        <div class="card overflow-hidden">
+          <!-- Channel header + selector + timing (one updateStep form) -->
+          <form method="POST" action="?/updateStep" use:enhance id={'sf-' + step.id}>
+            <input type="hidden" name="stepId" value={step.id} />
+            <input type="hidden" name="channel" value={cur} />
+            <div class="flex flex-col items-center gap-2 pt-5 pb-4 px-4 border-b border-bg-border bg-bg-elev/30">
+              <span class="chip-brand">Step {step.order}</span>
+              <div class="w-12 h-12 rounded-2xl bg-brand/10 border border-brand/30 grid place-items-center text-2xl">{chIcon(cur)}</div>
+              <div class="text-[11px] font-semibold uppercase tracking-wider text-ink-mute">{chLabel(cur)}</div>
+              <div class="flex items-center gap-1.5">
+                {#each STEP_CHANNELS as c}
+                  <button type="button" title={c.l} onclick={() => pickChannel(step, c.v)} class="w-9 h-9 rounded-lg grid place-items-center text-lg border transition-colors {cur === c.v ? 'border-brand bg-brand/10' : 'border-bg-border text-ink-dim hover:text-ink hover:bg-bg-elev'}">{c.icon}</button>
+                {/each}
+              </div>
               {#if i > 0}
-                <span class="text-xs text-ink-mute">wait</span>
-                <input name="delayDays" type="number" min="0" value={step.delayDays} class="input !py-1 !w-16" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()} />
-                <span class="text-xs text-ink-mute">days ·</span>
-                <select name="condition" class="input !py-1 !w-auto" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}>
-                  {#each CONDITIONS as c}<option value={c.v} selected={step.condition === c.v}>{c.l}</option>{/each}
-                </select>
-                {#if step.condition === 'if-opened' || step.condition === 'if-clicked'}
-                  <label class="flex items-center gap-1 text-xs text-ink-mute" title="Park the prospect on this step until the condition is met, instead of skipping it.">
-                    <input type="checkbox" name="waitForCondition" checked={step.waitForCondition} onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()} />
-                    wait for it
-                  </label>
-                  {#if step.waitForCondition}
-                    <span class="text-xs text-ink-mute">up to</span>
-                    <input name="waitTimeoutDays" type="number" min="0" value={Math.round(step.waitTimeoutHours / 24)} class="input !py-1 !w-14" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()} />
-                    <span class="text-xs text-ink-mute">days, else</span>
-                    <select name="onTimeout" class="input !py-1 !w-auto" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}>
-                      <option value="skip" selected={step.onTimeout === 'skip'}>skip step</option>
-                      <option value="send" selected={step.onTimeout === 'send'}>send anyway</option>
-                    </select>
-                  {:else}
-                    <input type="hidden" name="waitTimeoutDays" value={Math.round(step.waitTimeoutHours / 24)} />
-                    <input type="hidden" name="onTimeout" value={step.onTimeout} />
+                <div class="flex items-center gap-2 flex-wrap justify-center text-sm mt-1">
+                  <span class="text-xs text-ink-mute">wait</span>
+                  <input name="delayDays" type="number" min="0" value={step.delayDays} class="input !py-1 !w-16" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()} />
+                  <span class="text-xs text-ink-mute">days ·</span>
+                  <select name="condition" class="input !py-1 !w-auto" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}>
+                    {#each CONDITIONS as c}<option value={c.v} selected={step.condition === c.v}>{c.l}</option>{/each}
+                  </select>
+                  {#if step.condition === 'if-opened' || step.condition === 'if-clicked'}
+                    <label class="flex items-center gap-1 text-xs text-ink-mute" title="Park the prospect on this step until the condition is met, instead of skipping it.">
+                      <input type="checkbox" name="waitForCondition" checked={step.waitForCondition} onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()} /> wait for it
+                    </label>
+                    {#if step.waitForCondition}
+                      <span class="text-xs text-ink-mute">up to</span>
+                      <input name="waitTimeoutDays" type="number" min="0" value={Math.round(step.waitTimeoutHours / 24)} class="input !py-1 !w-14" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()} />
+                      <span class="text-xs text-ink-mute">days, else</span>
+                      <select name="onTimeout" class="input !py-1 !w-auto" onchange={(e) => (e.currentTarget.form as HTMLFormElement).requestSubmit()}>
+                        <option value="skip" selected={step.onTimeout === 'skip'}>skip step</option>
+                        <option value="send" selected={step.onTimeout === 'send'}>send anyway</option>
+                      </select>
+                    {:else}
+                      <input type="hidden" name="waitTimeoutDays" value={Math.round(step.waitTimeoutHours / 24)} />
+                      <input type="hidden" name="onTimeout" value={step.onTimeout} />
+                    {/if}
                   {/if}
-                {/if}
+                </div>
               {:else}
-                <input type="hidden" name="delayDays" value={step.delayDays} />
+                <input type="hidden" name="delayDays" value="0" />
                 <input type="hidden" name="condition" value="always" />
                 <span class="text-xs text-ink-dim">sent first</span>
               {/if}
-            </form>
-            <div class="flex-1"></div>
-            <form method="POST" action="?/deleteStep" use:enhance><input type="hidden" name="stepId" value={step.id} /><button class="btn-ghost text-accent-bad hover:text-accent-bad text-xs">Delete step</button></form>
-          </div>
+            </div>
+          </form>
 
-          <!-- A/B versions -->
-          <div class="space-y-3 pl-2 border-l-2 border-bg-border">
-            {#each step.versions as v}
+          <!-- Version tabs + editor -->
+          <div class="p-4">
+            <div class="flex items-center gap-1 border-b border-bg-border mb-3">
+              {#each step.versions as v, vi}
+                <button type="button" class="px-3 py-1.5 text-sm border-b-2 -mb-px {av === vi ? 'border-brand text-ink font-medium' : 'border-transparent text-ink-mute hover:text-ink'}" onclick={() => (activeVer[step.id] = vi)}>Version {v.label}</button>
+              {/each}
+              {#if step.versions.length < 5}
+                <form method="POST" action="?/addVersion" use:enhance class="inline-flex">
+                  <input type="hidden" name="stepId" value={step.id} />
+                  <button class="px-2.5 py-1.5 text-ink-mute hover:text-brand-hi" title="Add A/B version">+</button>
+                </form>
+              {/if}
+              <div class="flex-1"></div>
+              <form method="POST" action="?/deleteStep" use:enhance><input type="hidden" name="stepId" value={step.id} /><button class="btn-ghost btn-sm text-accent-bad hover:text-accent-bad">Delete step</button></form>
+            </div>
+
+            {#if ver}
               <form method="POST" action="?/updateVersion" use:enhance class="space-y-2">
-                <input type="hidden" name="versionId" value={v.id} />
-                <div class="flex items-center gap-2">
-                  <span class="chip-mute">Version {v.label}</span>
-                  <span class="text-xs text-ink-dim">{v.sent} sent · {v.opened} opened · {v.replied} replied</span>
+                <input type="hidden" name="versionId" value={ver.id} />
+                {#if cur === 'email'}
+                  <input name="subject" class="input" placeholder={'Subject — snippets like {{first_name}} work here'} value={ver.subject} />
+                {:else}
+                  <input type="hidden" name="subject" value={ver.subject} />
+                {/if}
+                <div class="flex items-center gap-1 flex-wrap border border-bg-border rounded-lg px-2 py-1.5 bg-bg-elev/40">
+                  {#each SNIPPETS as s}<button type="button" class="chip-mute hover:text-brand-hi" onclick={() => insertSnippet('body-' + ver.id, s)}>{s}</button>{/each}
+                  <button type="button" class="chip-mute hover:text-brand-hi" title="Insert a link — auto-tracked when sent" onclick={() => insertSnippet('body-' + ver.id, 'https://')}>🔗 link</button>
+                  <span class="text-[10px] text-ink-dim ml-1">click to insert · fallback: <code>{`{{first_name|there}}`}</code></span>
+                </div>
+                <textarea id={'body-' + ver.id} name="body" rows="9" class="input text-sm leading-relaxed" placeholder={'Hi {{first_name}},\n\n…'}>{ver.body}</textarea>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-ink-dim">{ver.sent} sent · {ver.opened} opened · {ver.clicked} clicked · {ver.replied} replied</span>
                   <div class="flex-1"></div>
                   {#if step.versions.length > 1}
-                    <button formaction="?/deleteVersion" class="btn-ghost text-accent-bad hover:text-accent-bad text-xs">Remove</button>
+                    <button formaction="?/deleteVersion" class="btn-ghost btn-sm text-accent-bad hover:text-accent-bad">Remove version</button>
                   {/if}
-                  <button class="btn-outline text-xs">Save</button>
+                  <button class="btn-primary btn-sm">Save</button>
                 </div>
-                {#if step.channel === 'email'}
-                  <input name="subject" class="input" placeholder={'Subject — use {{snippets}}'} value={v.subject} />
-                {:else}
-                  <input type="hidden" name="subject" value={v.subject} />
-                {/if}
-                <textarea name="body" rows="4" class="input font-mono text-xs" placeholder={'Message body — Hi {{first_name}}, …'}>{v.body}</textarea>
-              </form>
-            {/each}
-            {#if step.versions.length < 5}
-              <form method="POST" action="?/addVersion" use:enhance>
-                <input type="hidden" name="stepId" value={step.id} />
-                <button class="btn-ghost text-xs">+ Add A/B version ({step.versions.length}/5)</button>
               </form>
             {/if}
           </div>
