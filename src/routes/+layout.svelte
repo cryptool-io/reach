@@ -21,18 +21,35 @@
     }
   }
 
-  const nav = [
-    { href: '/pipeline', label: 'Pipeline', icon: '⏃' },
-    { href: '/prospects', label: 'Prospects', icon: '◴' },
-    { href: '/sourcer', label: 'Sourcer', icon: '✷' },
-    { href: '/campaigns', label: 'Campaigns', icon: '➤' },
-    { href: '/conversations', label: 'Inbox', icon: '✉' },
-    { href: '/cadences', label: 'Cadences', icon: '⟳' },
-    { href: '/network', label: 'Network', icon: '☍' },
-    { href: '/studio', label: 'Studio', icon: '◳' },
-    { href: '/mailboxes', label: 'Mailboxes', icon: '@' },
-    { href: '/connections', label: 'Connections', icon: '⇆' },
-    { href: '/settings', label: 'Settings', icon: '⚙' }
+  type NavChild = { href: string; label: string; icon: string };
+  type NavSection = { label: string; href: string; icon: string; children?: NavChild[] };
+  const nav: NavSection[] = [
+    {
+      label: 'Campaigns', href: '/campaigns', icon: '➤',
+      children: [
+        { href: '/campaigns', label: 'Campaigns', icon: '➤' },
+        { href: '/cadences', label: 'Cadences', icon: '⟳' },
+        { href: '/studio', label: 'Studio', icon: '◳' }
+      ]
+    },
+    {
+      label: 'Prospects', href: '/prospects', icon: '◴',
+      children: [
+        { href: '/prospects', label: 'Prospects', icon: '◴' },
+        { href: '/sourcer', label: 'Lead Finder', icon: '✷' },
+        { href: '/pipeline', label: 'Pipeline', icon: '⏃' },
+        { href: '/network', label: 'Network', icon: '☍' }
+      ]
+    },
+    { label: 'Inbox', href: '/conversations', icon: '✉' },
+    {
+      label: 'Deliverability', href: '/mailboxes', icon: '@',
+      children: [
+        { href: '/mailboxes', label: 'Mailboxes', icon: '@' },
+        { href: '/connections', label: 'Channels', icon: '⇆' }
+      ]
+    },
+    { label: 'Settings', href: '/settings', icon: '⚙' }
   ];
 
   async function switchProject(slug: string) {
@@ -47,6 +64,9 @@
   function isActive(href: string) {
     if (href === '/') return $page.url.pathname === '/';
     return $page.url.pathname.startsWith(href);
+  }
+  function sectionActive(s: NavSection) {
+    return s.children ? s.children.some((c) => isActive(c.href)) : isActive(s.href);
   }
 </script>
 
@@ -97,16 +117,42 @@
         {/if}
       </div>
 
-      <!-- Horizontal nav -->
-      <nav class="flex items-center gap-1 px-3 overflow-x-auto">
-        {#each nav as n}
-          <a
-            href={n.href}
-            class="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors {isActive(n.href) ? 'border-brand text-ink font-medium' : 'border-transparent text-ink-mute hover:text-ink'}"
-          >
-            <span class="opacity-60">{n.icon}</span>
-            <span>{n.label}</span>
-          </a>
+      <!-- Horizontal nav — grouped main sections with subsection dropdowns -->
+      <nav class="flex items-center gap-1 px-3">
+        {#each nav as s}
+          {#if s.children}
+            <div class="group relative">
+              <a
+                href={s.href}
+                class="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors {sectionActive(s) ? 'border-brand text-ink font-medium' : 'border-transparent text-ink-mute hover:text-ink'}"
+              >
+                <span class="opacity-60">{s.icon}</span>
+                <span>{s.label}</span>
+                <span class="text-ink-dim text-[10px] ml-0.5">▾</span>
+              </a>
+              <div class="absolute left-0 top-full pt-1 w-52 hidden group-hover:block group-focus-within:block z-30">
+                <div class="card shadow-pop p-1">
+                  {#each s.children as c}
+                    <a
+                      href={c.href}
+                      class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm row-hover {isActive(c.href) ? 'text-brand-hi font-medium' : 'text-ink-mute'}"
+                    >
+                      <span class="opacity-60 w-4 text-center">{c.icon}</span>
+                      <span>{c.label}</span>
+                    </a>
+                  {/each}
+                </div>
+              </div>
+            </div>
+          {:else}
+            <a
+              href={s.href}
+              class="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap border-b-2 -mb-px transition-colors {isActive(s.href) ? 'border-brand text-ink font-medium' : 'border-transparent text-ink-mute hover:text-ink'}"
+            >
+              <span class="opacity-60">{s.icon}</span>
+              <span>{s.label}</span>
+            </a>
+          {/if}
         {/each}
       </nav>
     </header>
