@@ -29,6 +29,7 @@
       children: [
         { href: '/campaigns', label: 'Campaigns', icon: '➤' },
         { href: '/reports', label: 'Reports', icon: '◔' },
+        { href: '/templates', label: 'Templates', icon: '❏' },
         { href: '/cadences', label: 'Cadences', icon: '⟳' },
         { href: '/studio', label: 'Studio', icon: '◳' }
       ]
@@ -37,6 +38,7 @@
       label: 'Prospects', href: '/prospects', icon: '◴',
       children: [
         { href: '/prospects', label: 'Prospects', icon: '◴' },
+        { href: '/lists', label: 'Lists', icon: '☰' },
         { href: '/sourcer', label: 'Lead Finder', icon: '✷' },
         { href: '/pipeline', label: 'Pipeline', icon: '⏃' },
         { href: '/network', label: 'Network', icon: '☍' }
