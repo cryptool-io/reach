@@ -24,6 +24,7 @@ interface ProviderDef {
 const PROVIDERS: ProviderDef[] = [
   { id: 'gemini', label: 'Google Gemini', keyEnv: 'GEMINI_API_KEY', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', smart: 'gemini-2.5-flash', fast: 'gemini-2.5-flash-lite', modelEnv: 'GEMINI_MODEL', free: true },
   { id: 'groq', label: 'Groq', keyEnv: 'GROQ_API_KEY', baseURL: 'https://api.groq.com/openai/v1', smart: 'llama-3.3-70b-versatile', fast: 'llama-3.1-8b-instant', modelEnv: 'GROQ_MODEL', free: true },
+  { id: 'cerebras', label: 'Cerebras', keyEnv: 'CEREBRAS_API_KEY', baseURL: 'https://api.cerebras.ai/v1', smart: 'llama-3.3-70b', fast: 'llama3.1-8b', modelEnv: 'CEREBRAS_MODEL', free: true },
   { id: 'openrouter', label: 'OpenRouter', keyEnv: 'OPENROUTER_API_KEY', baseURL: 'https://openrouter.ai/api/v1', smart: 'deepseek/deepseek-chat-v3-0324:free', fast: 'meta-llama/llama-3.3-70b-instruct:free', modelEnv: 'OPENROUTER_MODEL', free: true },
   { id: 'mistral', label: 'Mistral', keyEnv: 'MISTRAL_API_KEY', baseURL: 'https://api.mistral.ai/v1', smart: 'mistral-large-latest', fast: 'mistral-small-latest', modelEnv: 'MISTRAL_MODEL', free: true },
   { id: 'grok', label: 'Grok (xAI)', keyEnv: 'XAI_API_KEY', baseURL: 'https://api.x.ai/v1', smart: 'grok-2-latest', fast: 'grok-2-latest', modelEnv: 'XAI_MODEL', free: false },
