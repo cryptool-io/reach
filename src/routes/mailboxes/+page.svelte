@@ -2,7 +2,19 @@
   import { enhance } from '$app/forms';
   let { data, form } = $props();
 
-  let mode = $state<'list' | 'add' | 'bulk'>('list');
+  let mode = $state<'list' | 'choose' | 'add' | 'bulk'>('list');
+  let chosenPreset = $state('');
+  const presetObj = $derived(data.presets.find((p) => p.id === chosenPreset));
+  function chooseProvider(id: string) { chosenPreset = id; mode = 'add'; }
+  let domains = $derived(
+    Object.entries(
+      (data.mailboxes as any[]).reduce((acc: Record<string, number>, mb) => {
+        const d = (mb.fromEmail.split('@')[1] || '').toLowerCase();
+        if (d) acc[d] = (acc[d] || 0) + 1;
+        return acc;
+      }, {})
+    ).map(([domain, count]) => ({ domain, count }))
+  );
 
   const bulkTemplate = `label,fromName,fromEmail,host,port,secure,user,pass,imapHost,imapPort,dailyLimit,warmup
 Inbox 1,Ron at Cryptool,ron@cryptool.io,smtp.gmail.com,465,true,ron@cryptool.io,APP_PASSWORD,imap.gmail.com,993,40,true
@@ -18,18 +30,6 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
     URL.revokeObjectURL(u);
   }
 
-  function presetApply(e: Event) {
-    const id = (e.target as HTMLSelectElement).value;
-    const p = data.presets.find((x) => x.id === id);
-    if (!p) return;
-    const fm = (e.target as HTMLElement).closest('form');
-    if (!fm) return;
-    (fm.querySelector('[name=host]') as HTMLInputElement).value = p.host;
-    (fm.querySelector('[name=port]') as HTMLInputElement).value = String(p.port);
-    (fm.querySelector('[name=secure]') as HTMLInputElement).checked = p.secure;
-    (fm.querySelector('[name=imapHost]') as HTMLInputElement).value = p.imapHost;
-    (fm.querySelector('[name=imapPort]') as HTMLInputElement).value = String(p.imapPort);
-  }
 </script>
 
 <section class="max-w-4xl">
@@ -43,7 +43,7 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
         <form method="POST" action="?/testAll" use:enhance><button class="btn-outline" type="submit">Test all</button></form>
       {/if}
       <button class="btn-outline" onclick={() => (mode = mode === 'bulk' ? 'list' : 'bulk')}>{mode === 'bulk' ? 'Cancel' : 'Bulk import'}</button>
-      <button class="btn-primary" onclick={() => (mode = mode === 'add' ? 'list' : 'add')}>{mode === 'add' ? 'Cancel' : '+ Add mailbox'}</button>
+      <button class="btn-primary" onclick={() => (mode = mode === 'choose' || mode === 'add' ? 'list' : 'choose')}>{mode === 'choose' || mode === 'add' ? 'Cancel' : '+ Add mailbox'}</button>
     </div>
   </div>
 
@@ -62,28 +62,49 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
     <div class="card p-3 mb-3 text-sm {form.ok === 'test-fail' ? 'text-accent-bad' : 'text-accent-good'}">{form.detail}</div>
   {/if}
 
-  {#if mode === 'add'}
+  {#if mode === 'choose'}
+    <div class="card p-6 mb-5">
+      <h3 class="text-base font-semibold mb-1">Connect a sending mailbox</h3>
+      <p class="text-sm text-ink-mute mb-4">Pick how you'll connect. Gmail / Outlook use an <b>app password</b> — one-click OAuth lands when you add Google/Microsoft OAuth keys.</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        {#each data.presets as p}
+          <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => chooseProvider(p.id)}>
+            <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">{p.id === 'gmail' ? '✉' : p.id === 'outlook' ? '✉' : '⚙'}</div>
+            <div><div class="font-medium">{p.id === 'custom' ? 'Connect via SMTP / IMAP' : p.label}</div><div class="text-xs text-ink-dim">{p.host || 'Any provider — enter host/port'}</div></div>
+          </button>
+        {/each}
+        <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => (mode = 'bulk')}>
+          <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">⇪</div>
+          <div><div class="font-medium">Add in bulk (CSV)</div><div class="text-xs text-ink-dim">Connect dozens at once</div></div>
+        </button>
+      </div>
+    </div>
+  {:else if mode === 'add'}
     <div class="card p-5 mb-5">
+      <button type="button" class="text-xs text-ink-mute hover:text-ink mb-3" onclick={() => (mode = 'choose')}>← back to providers</button>
+      {#if chosenPreset === 'gmail' || chosenPreset === 'outlook'}
+        <div class="chip-warn inline-flex mb-3">Use an app password, not your login password. (One-click OAuth lands when Google/Microsoft OAuth keys are set.)</div>
+      {/if}
       <form method="POST" action="?/add" use:enhance={() => async ({ update }) => { await update(); mode = 'list'; }} class="space-y-3">
-        <div><span class="label">Provider preset</span>
-          <select class="input" onchange={presetApply}><option value="">— auto-fill host/port —</option>{#each data.presets as p}<option value={p.id}>{p.label}</option>{/each}</select>
+        <div><span class="label">Provider</span>
+          <select class="input" bind:value={chosenPreset}><option value="">Custom / other host</option>{#each data.presets as p}<option value={p.id}>{p.label}</option>{/each}</select>
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div><span class="label">Label</span><input name="label" class="input" placeholder="Inbox 1" /></div>
           <div><span class="label">From name</span><input name="fromName" class="input" placeholder="Ron at Cryptool" /></div>
           <div><span class="label">From email</span><input name="fromEmail" class="input" required /></div>
           <div><span class="label">Username</span><input name="user" class="input" required /></div>
-          <div><span class="label">SMTP host</span><input name="host" class="input" required /></div>
-          <div><span class="label">Port</span><input name="port" type="number" class="input" value="465" /></div>
-          <div class="col-span-2 flex items-center gap-2"><input type="checkbox" name="secure" checked /> <span class="text-sm">SSL/TLS (465)</span></div>
+          <div><span class="label">SMTP host</span><input name="host" class="input" value={presetObj?.host ?? ''} required /></div>
+          <div><span class="label">Port</span><input name="port" type="number" class="input" value={presetObj?.port ?? 465} /></div>
+          <div class="col-span-2 flex items-center gap-2"><input type="checkbox" name="secure" checked={presetObj?.secure ?? true} /> <span class="text-sm">SSL/TLS</span></div>
           <div><span class="label">App password</span><input name="pass" type="password" class="input" required /></div>
           <div></div>
-          <div><span class="label">IMAP host</span><input name="imapHost" class="input" /></div>
-          <div><span class="label">IMAP port</span><input name="imapPort" type="number" class="input" value="993" /></div>
+          <div><span class="label">IMAP host</span><input name="imapHost" class="input" value={presetObj?.imapHost ?? ''} /></div>
+          <div><span class="label">IMAP port</span><input name="imapPort" type="number" class="input" value={presetObj?.imapPort ?? 993} /></div>
           <div><span class="label">Daily limit</span><input name="dailyLimit" type="number" class="input" value="40" /></div>
           <div class="flex items-end"><label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="warmupEnabled" checked /> Warm-up</label></div>
         </div>
-        <button class="btn-primary" type="submit">Add & test</button>
+        <button class="btn-primary" type="submit">Add &amp; test</button>
       </form>
     </div>
   {:else if mode === 'bulk'}
@@ -112,6 +133,16 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
     {#if form?.ok === 'sendtest'}
       <div class="mb-4 space-y-1 text-xs">{#each form.results as r}<div class="{r.ok ? 'text-accent-good' : 'text-accent-bad'}">{r.ok ? '✓' : '✗'} {r.from} — {r.detail}</div>{/each}</div>
     {/if}
+  {/if}
+
+  {#if domains.length}
+    <div class="card p-4 mb-4">
+      <h3 class="text-sm font-medium mb-2">Sending domains</h3>
+      <div class="flex flex-wrap gap-2">
+        {#each domains as d}<span class="chip-mute" title="{d.count} mailbox(es)">{d.domain} · {d.count}</span>{/each}
+      </div>
+      <p class="text-xs text-ink-dim mt-2">Spread sending across a few domains, set SPF/DKIM/DMARC per domain, warm up gradually. Per-domain DNS checks land with the Deliverability dashboard.</p>
+    </div>
   {/if}
 
   <div class="card overflow-hidden">
