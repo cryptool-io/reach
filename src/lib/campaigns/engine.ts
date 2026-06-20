@@ -3,6 +3,7 @@
 // When a channel mode flips to auto (post-wiring), the same nextActionAt drives the sender.
 
 import { db } from '$lib/db';
+import { emitEvent, type WebhookEvent } from '$lib/webhooks';
 
 // Step-gating logic lives in a pure, DB-free module (unit-testable). Re-exported here so the rest
 // of the engine's consumers keep importing from one place.
@@ -158,6 +159,13 @@ export async function markEvent(
   }
 
   await db.campaignEnrollment.update({ where: { id: enrollmentId }, data });
+
+  const evMap: Record<string, WebhookEvent | undefined> = { replied: 'replied', bounced: 'bounced', 'opted-out': 'unsubscribed' };
+  const ev = evMap[event];
+  if (ev)
+    void emitEvent(enr.campaign.projectId, ev, {
+      campaignId: enr.campaignId, enrollmentId: enr.id, prospectId: enr.prospectId, interest: data.interest ?? enr.interest
+    });
 }
 
 /** Pick the A/B version for a step (round-robin by current sent counts). */

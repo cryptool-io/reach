@@ -9,6 +9,7 @@ import { sendProjectEmail } from '$lib/mailboxes';
 import { trackingBase, buildTrackedHtml } from '$lib/tracking';
 import { parseBlacklist, isBlacklisted } from '$lib/blacklist';
 import { isSuppressed } from '$lib/suppression';
+import { emitEvent } from '$lib/webhooks';
 import type { ChannelKind } from '$lib/types';
 
 export function stepChannelKind(ch: string): ChannelKind | null {
@@ -93,7 +94,7 @@ export async function dispatchStep(
   let note: string | undefined;
   const meta = (extra: Record<string, unknown> = {}) =>
     JSON.stringify({
-      campaignId: enr.campaignId, step: step.order, version: version.label,
+      campaignId: enr.campaignId, projectId: enr.campaign.projectId, step: step.order, version: version.label,
       versionId: version.id, enrollmentId: enr.id, trigger: opts.trigger, ...extra
     });
 
@@ -141,6 +142,10 @@ export async function dispatchStep(
       await db.message.update({ where: { id: msg.id }, data: { status: 'sent', sentAt: new Date(), draftMetaJson: meta({ mailbox: r.mailbox }) } });
       status = 'sent';
       note = `via ${r.mailbox}`;
+      void emitEvent(enr.campaign.projectId, 'sent', {
+        campaignId: enr.campaignId, enrollmentId: enr.id, step: step.order, version: version.label, mailbox: r.mailbox,
+        prospect: { id: enr.prospect.id, email: enr.prospect.email, name: enr.prospect.name, company: enr.prospect.company }
+      });
     } else {
       const result = await getAdapter(kind).send(
         { to: { name: enr.prospect.name, handle: handle || '' }, body: emailBody, subject: subjR.text },

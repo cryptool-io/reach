@@ -52,6 +52,38 @@ model Project {
   mailboxes       Mailbox[]
   templates       Template[]
   suppressions    Suppression[]
+  webhooks        Webhook[]
+  apiTokens       ApiToken[]
+}
+
+// Outbound webhook — POSTs campaign events (sent/opened/clicked/replied/bounced/unsubscribed)
+// to an external URL, optionally HMAC-signed. Enables Zapier/Make/CRM integrations.
+model Webhook {
+  id          String    @id @default(cuid())
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String
+  url         String
+  events      String    @default("all") // "all" or comma list: sent,opened,clicked,replied,bounced,unsubscribed
+  secret      String    @default("")     // HMAC-SHA256 signing secret (optional)
+  active      Boolean   @default(true)
+  lastStatus  String    @default("")     // last delivery status / error
+  lastFiredAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+// Bearer token for the public REST API (scoped to one project).
+model ApiToken {
+  id         String    @id @default(cuid())
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  token      String    @unique
+  label      String    @default("")
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([projectId])
 }
 
 // Project-wide opt-out / unsubscribe list — addresses we must never contact again.

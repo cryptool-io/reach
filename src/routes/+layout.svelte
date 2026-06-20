@@ -53,7 +53,13 @@
         { href: '/connections', label: 'Channels', icon: '⇆' }
       ]
     },
-    { label: 'Settings', href: '/settings', icon: '⚙' }
+    {
+      label: 'Settings', href: '/settings', icon: '⚙',
+      children: [
+        { href: '/settings', label: 'Settings', icon: '⚙' },
+        { href: '/integrations', label: 'API & Webhooks', icon: '⚷' }
+      ]
+    }
   ];
 
   async function switchProject(slug: string) {
