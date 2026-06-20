@@ -7,13 +7,19 @@
   let chosenPreset = $state('');
   const presetObj = $derived(data.presets.find((p) => p.id === chosenPreset));
   function chooseProvider(id: string) { chosenPreset = id; mode = 'add'; }
+  const DIFF_CHIP: Record<string, string> = { Easy: 'chip-good', Medium: 'chip-warn', Advanced: 'chip-bad' };
+  // Plain-English, one-action-per-step Azure setup. This is the most advanced option (it needs a
+  // Microsoft 365 / Azure admin), but it's the durable way to send from a Microsoft domain.
   const GRAPH_STEPS = [
-    'portal.azure.com → Microsoft Entra ID → App registrations → New registration. Name it "Reach", single tenant, Register.',
-    'On the Overview page, copy the Application (client) ID and the Directory (tenant) ID.',
-    'Certificates & secrets → New client secret → copy the secret VALUE (shown only once).',
-    'API permissions → Add a permission → Microsoft Graph → Application permissions → Mail.Send → Add, then click "Grant admin consent".',
-    '(Recommended) Limit which mailboxes it can send as with an Application Access Policy (New-ApplicationAccessPolicy in Exchange Online PowerShell).',
-    'Enter the Tenant ID, Client ID, Client secret and a From email (a real mailbox in your tenant) below, then Add & test.'
+    'Sign in at portal.azure.com with a Microsoft 365 ADMIN account (you need admin rights for the consent step further down).',
+    'In the top search bar, type "App registrations" and open it. Click "+ New registration".',
+    'Name it "Reach", leave "Accounts in this organizational directory only" selected, and click Register.',
+    'You land on the app\'s Overview page. Copy two values from here: "Application (client) ID" and "Directory (tenant) ID" — you\'ll paste them into the form below.',
+    'Left menu → "Certificates & secrets" → "+ New client secret" → Add. Immediately copy the value under the "Value" column (NOT "Secret ID") — it is only shown once. This is your Client secret.',
+    'Left menu → "API permissions" → "+ Add a permission" → "Microsoft Graph" → "Application permissions". Search "Mail.Send", tick it, and click "Add permissions".',
+    'Still on API permissions, click "✓ Grant admin consent for <your org>" and confirm. The Mail.Send row must show a green "Granted" tick before sending will work.',
+    'Come back here and fill the form: Tenant ID, Client ID, Client secret (you paste this), and From email (a real mailbox in your tenant, e.g. you@cryptool.io). Then click "Add & test".',
+    'Optional but recommended: ask your admin to restrict which mailboxes this app can send as, using an Application Access Policy in Exchange Online PowerShell.'
   ];
   let domains = $derived(
     Object.entries(
@@ -83,21 +89,37 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
   {#if mode === 'choose'}
     <div class="card p-6 mb-5">
       <h3 class="text-base font-semibold mb-1">Connect a sending mailbox</h3>
-      <p class="text-sm text-ink-mute mb-4">Pick how you'll connect. Gmail / Outlook use an <b>app password</b> — one-click OAuth lands when you add Google/Microsoft OAuth keys.</p>
+      <p class="text-sm text-ink-mute mb-3">Pick an option — each one opens clear, step-by-step instructions.</p>
+      <div class="rounded-lg bg-bg-elev/50 border border-bg-border p-3 mb-4 text-xs text-ink-mute space-y-1">
+        <div class="font-semibold text-ink">Not sure which to pick?</div>
+        <div>• Your email is on <b>Google</b> (@gmail.com or Workspace)? → <b>Gmail</b> — easiest.</div>
+        <div>• Your email is on <b>Microsoft 365</b> (a company domain like yours)? → <b>Microsoft 365 (Graph API)</b>. Plain Outlook SMTP is usually blocked on these domains.</div>
+        <div>• Want to send from your own domain at volume? → <b>Amazon SES</b>.</div>
+        <div>• Adding many inboxes at once? → <b>Add in bulk (CSV)</b>.</div>
+      </div>
       <div class="grid sm:grid-cols-2 gap-3">
         {#each data.presets as p}
-          <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => chooseProvider(p.id)}>
-            <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">{p.id === 'gmail' ? '✉' : p.id === 'outlook' ? '✉' : p.id === 'ses' ? '☁' : '⚙'}</div>
-            <div><div class="font-medium">{p.id === 'custom' ? 'Connect via SMTP / IMAP' : p.label}</div><div class="text-xs text-ink-dim">{p.host || 'Any provider — enter host/port'}</div></div>
+          <button class="card card-hover p-4 text-left flex items-start gap-3" onclick={() => chooseProvider(p.id)}>
+            <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl shrink-0">{p.id === 'gmail' ? '✉' : p.id === 'outlook' ? '✉' : p.id === 'ses' ? '☁' : '⚙'}</div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2"><span class="font-medium">{p.id === 'custom' ? 'Connect via SMTP / IMAP' : p.label}</span><span class="{DIFF_CHIP[p.difficulty]} text-[10px]">{p.difficulty}</span></div>
+              <div class="text-xs text-ink-dim mt-0.5">{p.bestFor}</div>
+            </div>
           </button>
         {/each}
-        <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => chooseProvider('graph')}>
-          <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">🪟</div>
-          <div><div class="font-medium">Microsoft 365 (Graph API)</div><div class="text-xs text-ink-dim">Durable M365 sending — no SMTP</div></div>
+        <button class="card card-hover p-4 text-left flex items-start gap-3" onclick={() => chooseProvider('graph')}>
+          <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl shrink-0">🪟</div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2"><span class="font-medium">Microsoft 365 (Graph API)</span><span class="chip-bad text-[10px]">Advanced</span></div>
+            <div class="text-xs text-ink-dim mt-0.5">The reliable way to send from a Microsoft 365 domain. One-time Azure admin setup.</div>
+          </div>
         </button>
-        <button class="card card-hover p-4 text-left flex items-center gap-3" onclick={() => (mode = 'bulk')}>
-          <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl">⇪</div>
-          <div><div class="font-medium">Add in bulk (CSV)</div><div class="text-xs text-ink-dim">Connect dozens at once</div></div>
+        <button class="card card-hover p-4 text-left flex items-start gap-3" onclick={() => (mode = 'bulk')}>
+          <div class="w-10 h-10 rounded-xl bg-bg-elev border border-bg-border grid place-items-center text-xl shrink-0">⇪</div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2"><span class="font-medium">Add in bulk (CSV)</span><span class="chip-mute text-[10px]">Bulk</span></div>
+            <div class="text-xs text-ink-dim mt-0.5">Paste a spreadsheet/CSV to connect many inboxes at once.</div>
+          </div>
         </button>
       </div>
     </div>
