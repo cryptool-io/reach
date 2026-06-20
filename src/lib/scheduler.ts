@@ -45,6 +45,18 @@ function withinWindow(c: { timezone: string; sendDaysJson: string; sendFrom: str
 
 let running = false;
 
+// Randomized send interval: when a campaign sets a min/max gap, we pace ONE send per slot
+// (human-like) instead of draining a batch. The next-allowed timestamp per campaign is held in
+// memory; on a cold start it's reseeded from the last recorded send so spacing survives restarts.
+const nextSendAllowed = new Map<string, number>();
+
+function intervalGapMs(c: { intervalMinMinutes: number; intervalMaxMinutes: number }): number {
+  const min = Math.max(0, c.intervalMinMinutes || 0);
+  const max = Math.max(min, c.intervalMaxMinutes || min);
+  const minutes = max <= 0 ? 0 : min + Math.random() * (max - min);
+  return minutes * 60_000;
+}
+
 export interface TickReport {
   scanned: number;
   sent: number;
@@ -85,6 +97,25 @@ export async function tick(): Promise<TickReport> {
         continue;
       }
 
+      // Randomized send interval: when configured, pace one send per [min,max]-minute slot.
+      const intervalOn = (c.intervalMinMinutes || 0) > 0 || (c.intervalMaxMinutes || 0) > 0;
+      if (intervalOn) {
+        let allowedAt = nextSendAllowed.get(c.id);
+        if (allowedAt === undefined) {
+          const last = await db.campaignSend.findFirst({
+            where: { campaignId: c.id },
+            orderBy: { at: 'desc' },
+            select: { at: true }
+          });
+          allowedAt = last ? last.at.getTime() + intervalGapMs(c) : 0;
+          nextSendAllowed.set(c.id, allowedAt);
+        }
+        if (Date.now() < allowedAt) {
+          details.push(`${c.name}: interval throttle (paced)`);
+          continue;
+        }
+      }
+
       // Which channels are auto-enabled? Email is sendable when its channel is auto + the project has mailboxes.
       const channels = await db.channel.findMany({ where: { projectId: c.projectId } });
       const mailboxCount = await db.mailbox.count({ where: { projectId: c.projectId, status: 'active' } });
@@ -105,7 +136,7 @@ export async function tick(): Promise<TickReport> {
       // Send a BATCH this tick: drain due enrollments up to the campaign's remaining daily budget,
       // capped per tick. Mailbox rotation + per-mailbox caps bound the real daily volume.
       const PER_TICK = 15;
-      let budget = Math.min(c.dailyLimit - sentTodayCount, PER_TICK);
+      let budget = Math.min(c.dailyLimit - sentTodayCount, intervalOn ? 1 : PER_TICK);
       const due = await db.campaignEnrollment.findMany({
         where: { campaignId: c.id, status: 'active', OR: [{ nextActionAt: null }, { nextActionAt: { lte: new Date() } }] },
         include: { prospect: true },
@@ -135,6 +166,8 @@ export async function tick(): Promise<TickReport> {
       }
       sent += campaignSent;
       waited += campaignWaited;
+      // Open the next interval slot only after an actual send.
+      if (intervalOn && campaignSent > 0) nextSendAllowed.set(c.id, Date.now() + intervalGapMs(c));
       details.push(
         `${c.name}: sent ${campaignSent}${campaignWaited ? `, waiting ${campaignWaited}` : ''}${noCapacity ? ' (mailbox capacity reached)' : ''}`
       );

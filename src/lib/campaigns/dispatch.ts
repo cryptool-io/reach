@@ -7,6 +7,7 @@ import { renderTemplate } from '$lib/snippets';
 import { advanceAfterSend, pickVersion, evaluateStepGate } from './engine';
 import { sendProjectEmail } from '$lib/mailboxes';
 import { trackingBase, buildTrackedHtml } from '$lib/tracking';
+import { parseBlacklist, isBlacklisted } from '$lib/blacklist';
 import type { ChannelKind } from '$lib/types';
 
 export function stepChannelKind(ch: string): ChannelKind | null {
@@ -38,6 +39,19 @@ export async function dispatchStep(
 
   const step = enr.campaign.steps.find((s) => s.order === enr.currentStep);
   if (!step) return { ok: false, reason: 'no-step' };
+
+  // Compliance: never send to a blacklisted address/domain (email channel).
+  // Match → terminate the enrollment so it isn't retried, and surface it.
+  if (stepChannelKind(step.channel) === 'email') {
+    const bl = parseBlacklist(enr.campaign.blacklistJson);
+    if (bl.length && isBlacklisted(enr.prospect.email, bl)) {
+      await db.campaignEnrollment.update({
+        where: { id: enrollmentId },
+        data: { status: 'opted-out', nextActionAt: null, lastEventAt: new Date() }
+      });
+      return { ok: false, reason: 'blacklisted', note: `${enr.prospect.email} is on the campaign blacklist` };
+    }
+  }
 
   // Conditional gating (auto only — a human sending from the Queue always overrides).
   //  • plain conditional step → skip-and-advance when the condition isn't met (legacy behaviour)

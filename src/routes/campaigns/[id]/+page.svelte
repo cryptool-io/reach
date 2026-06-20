@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { CHANNEL_LABEL, STAGES, STAGE_LABEL } from '$lib/types';
+  import { spamCheck } from '$lib/spamCheck';
 
   let { data, form } = $props();
   let { campaign, enrollments, prospects, queue, stats, tab } = $derived(data);
@@ -54,6 +55,16 @@
     el.selectionStart = el.selectionEnd = s + text.length;
     el.focus();
     el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  // Load a saved template's subject + body into this version's fields (replaces current text).
+  function applyTemplate(verId: string, payload: string) {
+    if (!payload) return;
+    let tpl: { subject?: string; body?: string };
+    try { tpl = JSON.parse(payload); } catch { return; }
+    const subj = document.getElementById('subj-' + verId) as HTMLInputElement | null;
+    const body = document.getElementById('body-' + verId) as HTMLTextAreaElement | null;
+    if (subj && tpl.subject != null) { subj.value = tpl.subject; subj.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (body && tpl.body != null) { body.value = tpl.body; body.dispatchEvent(new Event('input', { bubbles: true })); }
   }
 
   const rate = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
@@ -117,9 +128,10 @@
     {/each}
   </div>
 
-  {#if form?.error}<div class="card p-3 mb-4 text-sm text-accent-bad">{form.error}</div>{/if}
+  {#if form?.error}<div class="card p-3 mb-4 text-sm text-accent-bad whitespace-pre-line">{form.error}</div>{/if}
   {#if form?.ok === 'enroll'}<div class="card p-3 mb-4 text-sm text-accent-good">Enrolled {form.added}{form.skipped ? `, skipped ${form.skipped} duplicate(s)` : ''}.</div>{/if}
   {#if form?.ok === 'sent'}<div class="card p-3 mb-4 text-sm text-accent-good">Step sent / drafted and sequence advanced.</div>{/if}
+  {#if form?.ok === 'sendtest'}<div class="card p-3 mb-4 text-sm text-accent-good">{form.detail}</div>{/if}
 
   <!-- ── SEQUENCE ─────────────────────────────────────────────── -->
   {#if tab === 'sequence'}
@@ -197,21 +209,31 @@
             </div>
 
             {#if ver}
+              {@const spam = spamCheck(ver.subject, ver.body)}
               <form method="POST" action="?/updateVersion" use:enhance class="space-y-2">
                 <input type="hidden" name="versionId" value={ver.id} />
                 {#if cur === 'email'}
-                  <input name="subject" class="input" placeholder={'Subject — snippets like {{first_name}} work here'} value={ver.subject} />
+                  <input id={'subj-' + ver.id} name="subject" class="input" placeholder={'Subject — snippets like {{first_name}} work here'} value={ver.subject} />
                 {:else}
                   <input type="hidden" name="subject" value={ver.subject} />
                 {/if}
                 <div class="flex items-center gap-1 flex-wrap border border-bg-border rounded-lg px-2 py-1.5 bg-bg-elev/40">
                   {#each SNIPPETS as s}<button type="button" class="chip-mute hover:text-brand-hi" onclick={() => insertSnippet('body-' + ver.id, s)}>{s}</button>{/each}
                   <button type="button" class="chip-mute hover:text-brand-hi" title="Insert a link — auto-tracked when sent" onclick={() => insertSnippet('body-' + ver.id, 'https://')}>🔗 link</button>
+                  {#if data.templates?.length}
+                    <select class="ml-1 text-xs bg-bg-elev border border-bg-border rounded px-1.5 py-1 text-ink-mute" title="Insert a saved template (replaces this version's text)" onchange={(e) => { applyTemplate(ver.id, e.currentTarget.value); e.currentTarget.selectedIndex = 0; }}>
+                      <option value="">📋 Template…</option>
+                      {#each data.templates as t}<option value={JSON.stringify({ subject: t.subject, body: t.body })}>{t.name}</option>{/each}
+                    </select>
+                  {/if}
                   <span class="text-[10px] text-ink-dim ml-1">click to insert · fallback: <code>{`{{first_name|there}}`}</code></span>
                 </div>
                 <textarea id={'body-' + ver.id} name="body" rows="9" class="input text-sm leading-relaxed" placeholder={'Hi {{first_name}},\n\n…'}>{ver.body}</textarea>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 flex-wrap">
                   <span class="text-xs text-ink-dim">{ver.sent} sent · {ver.opened} opened · {ver.clicked} clicked · {ver.replied} replied</span>
+                  {#if spam.score > 0}
+                    <span class="chip-{spam.level === 'high' ? 'bad' : 'warn'}" title={'Spam check — ' + spam.issues.join(' · ')}>⚠ Spam risk: {spam.level}</span>
+                  {/if}
                   <div class="flex-1"></div>
                   {#if step.versions.length > 1}
                     <button formaction="?/deleteVersion" class="btn-ghost btn-sm text-accent-bad hover:text-accent-bad">Remove version</button>
@@ -219,6 +241,15 @@
                   <button class="btn-primary btn-sm">Save</button>
                 </div>
               </form>
+              {#if cur === 'email'}
+                <form method="POST" action="?/sendTest" use:enhance class="flex items-center gap-2 mt-2 pt-2 border-t border-bg-border flex-wrap">
+                  <input type="hidden" name="versionId" value={ver.id} />
+                  <span class="text-xs text-ink-dim">Send a test:</span>
+                  <input name="to" type="email" placeholder="you@company.com" class="input !py-1 !w-52 text-xs" />
+                  <button class="btn-outline btn-sm" title="Render this version with sample data and email it — no enrollment, not counted">Send test</button>
+                  <span class="text-[10px] text-ink-dim">renders snippets · doesn't enroll anyone</span>
+                </form>
+              {/if}
             {/if}
           </div>
         </div>

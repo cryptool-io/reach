@@ -4,6 +4,8 @@ import { error, fail } from '@sveltejs/kit';
 import { enrollProspects, dueEnrollments, markEvent, campaignStats, pickVersion } from '$lib/campaigns/engine';
 import { renderTemplate } from '$lib/snippets';
 import { dispatchStep } from '$lib/campaigns/dispatch';
+import { sendProjectEmail } from '$lib/mailboxes';
+import { spamCheck } from '$lib/spamCheck';
 import { parseFieldSchema } from '$lib/presets';
 
 export const load: PageServerLoad = async ({ params, locals, url }) => {
@@ -50,6 +52,11 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 
   const project = await db.project.findUnique({ where: { id: campaign.projectId } });
   const fieldKeys = parseFieldSchema(project?.fieldSchemaJson ?? '[]').map((f) => f.key);
+  const templates = await db.template.findMany({
+    where: { projectId: campaign.projectId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, name: true, subject: true, body: true }
+  });
 
   // send-readiness, so the campaign page can show exactly what's needed to launch
   const [mailboxCount, emailChannel] = await Promise.all([
@@ -58,7 +65,7 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
   ]);
 
   const tab = url.searchParams.get('tab') ?? 'prospects';
-  return { campaign, enrollments, prospects, queue, stats, tab, fieldKeys, mailboxCount, emailMode: emailChannel?.mode ?? 'manual' };
+  return { campaign, enrollments, prospects, queue, stats, tab, fieldKeys, templates, mailboxCount, emailMode: emailChannel?.mode ?? 'manual' };
 };
 
 export const actions: Actions = {
@@ -104,6 +111,26 @@ export const actions: Actions = {
     const f = await request.formData();
     const status = String(f.get('status') ?? '');
     if (!['draft', 'running', 'paused', 'completed'].includes(status)) return fail(400);
+
+    // Spam-check launch guard: when the campaign has spam-check on, block going live if any
+    // version's copy scores "high". The user can lower the score or turn the toggle off.
+    if (status === 'running') {
+      const full = await db.campaign.findUnique({
+        where: { id: params.id },
+        include: { steps: { orderBy: { order: 'asc' }, include: { versions: { orderBy: { label: 'asc' } } } } }
+      });
+      if (full?.spamCheck) {
+        const flagged: string[] = [];
+        for (const s of full.steps)
+          for (const v of s.versions) {
+            const r = spamCheck(v.subject, v.body);
+            if (r.level === 'high') flagged.push(`Step ${s.order}${v.label}: ${r.issues.join('; ')}`);
+          }
+        if (flagged.length)
+          return fail(400, { error: `Spam check blocked launch (edit the copy, or turn off spam-check in Delivery):\n• ${flagged.join('\n• ')}` });
+      }
+    }
+
     const campaign = await db.campaign.update({ where: { id: params.id }, data: { status } });
     // Smart start: flip the project's Email channel to Auto so the scheduler can send
     // (one less hidden step in Settings). Mailboxes still required — surfaced on the page.
@@ -114,6 +141,53 @@ export const actions: Actions = {
       });
     }
     return { ok: 'status' };
+  },
+
+  // ── per-step send test: render this version's copy for a sample prospect and send it to a
+  //    test address, WITHOUT enrolling anyone or advancing the sequence. ────────────────────
+  sendTest: async ({ request }) => {
+    const f = await request.formData();
+    const versionId = String(f.get('versionId') ?? '');
+    const to = String(f.get('to') ?? '').trim();
+    if (!versionId || !to) return fail(400, { error: 'A test recipient address is required.' });
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return fail(400, { error: 'Enter a valid test email address.' });
+
+    const version = await db.campaignStepVersion.findUnique({
+      where: { id: versionId },
+      include: { step: { include: { campaign: true } } }
+    });
+    if (!version) return fail(404, { error: 'Version not found.' });
+    const campaign = version.step.campaign;
+
+    // Snippet data: the most-recent real prospect if any, else a sample so {{tags}} resolve.
+    const real = await db.prospect.findFirst({
+      where: { projectId: campaign.projectId },
+      orderBy: { updatedAt: 'desc' }
+    });
+    const ctx =
+      real ??
+      ({
+        name: 'Alex Sample', company: 'Acme Inc', role: 'Head of Growth', email: to,
+        linkedinUrl: '', xHandle: '', telegram: '', discord: '', customJson: '{}'
+      } as Parameters<typeof renderTemplate>[1]);
+
+    const subj = renderTemplate(version.subject, ctx).text;
+    const body = renderTemplate(version.body, ctx).text;
+    const header = `[TEST] ${campaign.name} · step ${version.step.order} · version ${version.label}\n` +
+      `(rendered with ${real ? real.name : 'sample'} data — not enrolled, not counted)\n\n`;
+    const r = await sendProjectEmail(campaign.projectId, {
+      to,
+      subject: subj ? `[test] ${subj}` : `[test] ${campaign.name}`,
+      body: header + body
+    });
+    if (!r.ok)
+      return fail(400, {
+        error:
+          r.reason === 'no-capacity'
+            ? 'No mailbox capacity right now — every mailbox is at its daily cap. Add a mailbox or wait.'
+            : `Test send failed: ${r.detail ?? r.reason}`
+      });
+    return { ok: 'sendtest', detail: `Test sent to ${to} via ${r.mailbox}.` };
   },
 
   // ── sequence: steps + versions ─────────────────────────────────────
