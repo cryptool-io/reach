@@ -2,9 +2,9 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/db';
 import { authProject, json, unauthorized } from '$lib/apiAuth';
 
-type ProspectLike = { id: string; name: string; email: string; company: string; role: string; stage: string; tags: string; linkedinUrl: string };
+type ProspectLike = { id: string; name: string; email: string; emailStatus?: string; company: string; role: string; stage: string; tags: string; linkedinUrl: string };
 function pub(p: ProspectLike) {
-  return { id: p.id, name: p.name, email: p.email, company: p.company, role: p.role, stage: p.stage, tags: p.tags, linkedin: p.linkedinUrl };
+  return { id: p.id, name: p.name, email: p.email, emailStatus: p.emailStatus ?? '', company: p.company, role: p.role, stage: p.stage, tags: p.tags, linkedin: p.linkedinUrl };
 }
 
 // GET /api/v1/prospects?limit=100 — list prospects (most recently updated first).

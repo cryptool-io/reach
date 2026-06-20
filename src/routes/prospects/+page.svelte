@@ -325,6 +325,12 @@
         <button class="btn-outline" type="submit">Add tag</button>
       </form>
 
+      <!-- Verify emails (syntax + MX) -->
+      <form method="POST" action="?/bulkVerify" use:enhance title="Check the selected addresses (syntax + mail server). Invalid ones are skipped at send to protect your domain.">
+        {@render scopeInputs()}
+        <button class="btn-outline" type="submit">✓ Verify emails</button>
+      </form>
+
       <div class="flex-1"></div>
       <form method="POST" action="?/bulkDelete" use:enhance onsubmit={(e) => { if (!confirm(`Delete ${targetCount} prospect(s)? This cannot be undone.`)) e.preventDefault(); }}>
         {@render scopeInputs()}

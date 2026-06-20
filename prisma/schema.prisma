@@ -130,6 +130,7 @@ model Mailbox {
   sentDate        String   @default("")         // YYYY-MM-DD, for daily reset
   status          String   @default("active")   // active | paused | error
   lastError       String   @default("")
+  failCount       Int      @default(0)            // consecutive send failures → auto-pause past threshold
   lastTestedAt    DateTime?
   lastSyncAt      DateTime?                       // IMAP inbound-sync watermark (replies/bounces/OOO)
   createdAt       DateTime @default(now())
@@ -166,6 +167,7 @@ model Prospect {
   role        String   @default("")
   linkedinUrl String   @default("")
   email       String   @default("")
+  emailStatus String   @default("")    // "" | valid | invalid | risky | unknown (list-hygiene verification)
   xHandle     String   @default("")
   telegram    String   @default("")
   discord     String   @default("")

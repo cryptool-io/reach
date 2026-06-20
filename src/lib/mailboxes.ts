@@ -59,9 +59,12 @@ async function recordSend(mb: Mailbox) {
   const isToday = mb.sentDate === today();
   await db.mailbox.update({
     where: { id: mb.id },
-    data: { sentToday: isToday ? { increment: 1 } : 1, sentDate: today(), lastError: '' }
+    data: { sentToday: isToday ? { increment: 1 } : 1, sentDate: today(), lastError: '', failCount: 0 }
   });
 }
+
+// Auto-pause a mailbox after repeated consecutive send failures (dead creds, provider block, …).
+const AUTO_PAUSE_AFTER = 5;
 
 export interface ProjectSendResult {
   ok: boolean;
@@ -95,7 +98,16 @@ export async function sendProjectEmail(
     await recordSend(mb);
     return { ok: true, mailbox: mb.fromEmail };
   }
-  await db.mailbox.update({ where: { id: mb.id }, data: { lastError: r.detail } });
+  const failCount = mb.failCount + 1;
+  const autoPause = failCount >= AUTO_PAUSE_AFTER;
+  await db.mailbox.update({
+    where: { id: mb.id },
+    data: {
+      lastError: autoPause ? `${r.detail} — auto-paused after ${failCount} consecutive failures` : r.detail,
+      failCount,
+      ...(autoPause ? { status: 'paused' } : {})
+    }
+  });
   return { ok: false, reason: 'send-failed', detail: r.detail };
 }
 

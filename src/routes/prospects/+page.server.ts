@@ -6,6 +6,7 @@ import { STARTER_INVESTORS } from '$lib/starter-investors';
 import { buildWhere, buildOrderBy } from '$lib/prospect-filter';
 import { STAGES } from '$lib/types';
 import { enrollMany } from '$lib/campaigns/engine';
+import { verifyBatch, type EmailStatus } from '$lib/verifyEmail';
 
 const PAGE_SIZE = 100;
 
@@ -126,6 +127,38 @@ export const actions: Actions = {
     const f = await request.formData();
     const res = await db.prospect.deleteMany({ where: bulkWhere(locals.activeProjectId, f) });
     return { ok: 'bulk', message: `Deleted ${res.count} prospect(s).` };
+  },
+
+  // List hygiene: verify the selection's emails (syntax + MX). Processes the not-yet-verified
+  // ones first, capped per run so a huge list chews through over a few clicks.
+  bulkVerify: async ({ request, locals }) => {
+    if (!locals.activeProjectId) return fail(400);
+    const f = await request.formData();
+    const ids = await bulkIds(locals.activeProjectId, f);
+    if (!ids.length) return fail(400, { error: 'no prospects selected' });
+    const CAP = 1500;
+    const rows = await db.prospect.findMany({
+      where: { id: { in: ids }, email: { not: '' }, emailStatus: { in: ['', 'unknown'] } },
+      select: { id: true, email: true },
+      take: CAP
+    });
+    if (!rows.length) return { ok: 'bulk', message: 'Nothing to verify — selected prospects are already verified (or have no email).' };
+    const results = await verifyBatch(rows);
+    const byStatus: Record<EmailStatus, string[]> = { valid: [], invalid: [], risky: [], unknown: [] };
+    for (const [id, status] of results) byStatus[status].push(id);
+    for (const [status, idlist] of Object.entries(byStatus)) {
+      for (let j = 0; j < idlist.length; j += 500) {
+        await db.prospect.updateMany({ where: { id: { in: idlist.slice(j, j + 500) } }, data: { emailStatus: status } });
+      }
+    }
+    const remaining = Math.max(0, ids.length - rows.length);
+    return {
+      ok: 'bulk',
+      message:
+        `Verified ${rows.length}: ${byStatus.valid.length} valid, ${byStatus.risky.length} risky (role), ${byStatus.invalid.length} invalid.` +
+        (remaining ? ` ${remaining} more queued — run Verify again to continue.` : '') +
+        ` Invalid addresses are skipped automatically at send.`
+    };
   },
 
   create: async ({ request, locals }) => {

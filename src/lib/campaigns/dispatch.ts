@@ -46,10 +46,16 @@ export async function dispatchStep(
   // bounced) address. Match → terminate the enrollment so it isn't retried, and surface it.
   if (stepChannelKind(step.channel) === 'email') {
     const email = (enr.prospect.email || '').trim();
+    // Verified-invalid address → treat as a bounce, don't send (protects domain reputation).
+    if (enr.prospect.emailStatus === 'invalid') {
+      await db.campaignEnrollment.update({
+        where: { id: enrollmentId },
+        data: { status: 'bounced', interest: 'bounced', nextActionAt: null, lastEventAt: new Date() }
+      });
+      return { ok: false, reason: 'invalid-email', note: `${email} failed verification` };
+    }
     const bl = parseBlacklist(enr.campaign.blacklistJson);
-    const blocked =
-      (bl.length && isBlacklisted(email, bl)) || (await isSuppressed(enr.campaign.projectId, email));
-    if (blocked) {
+    if ((bl.length && isBlacklisted(email, bl)) || (await isSuppressed(enr.campaign.projectId, email))) {
       await db.campaignEnrollment.update({
         where: { id: enrollmentId },
         data: { status: 'opted-out', nextActionAt: null, lastEventAt: new Date() }
