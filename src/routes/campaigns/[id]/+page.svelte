@@ -313,7 +313,7 @@
         <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="spamCheck" checked={campaign.spamCheck} /> Spam-word & link check before send</label>
         <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="detectEmptyFields" checked={campaign.detectEmptyFields} /> Don't send if a snippet is empty</label>
         <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="detectDuplicates" checked={campaign.detectDuplicates} /> Warn on duplicate prospects</label>
-        <div><label class="label" for="unsub">Unsubscribe line</label><input id="unsub" name="unsubMessage" class="input" value={campaign.unsubMessage} placeholder="Reply STOP to opt out." /></div>
+        <div><label class="label" for="unsub">Unsubscribe line</label><input id="unsub" name="unsubMessage" class="input" value={campaign.unsubMessage} placeholder="Don't want these? Unsubscribe." /><p class="text-xs text-ink-dim mt-1">A one-click <code>List-Unsubscribe</code> header is added to every send automatically (required by Gmail/Yahoo). If you set a line here, a visible unsubscribe link is appended too. Opt-outs are suppressed project-wide.</p></div>
       </div>
 
       <button class="btn-primary">Save delivery settings</button>

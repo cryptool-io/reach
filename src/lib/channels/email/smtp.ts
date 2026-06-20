@@ -109,15 +109,23 @@ export async function verifySmtp(c: SmtpCreds): Promise<{ ok: boolean; detail: s
 
 export async function sendSmtp(
   c: SmtpCreds,
-  msg: { to: string; subject: string; body: string; html?: string }
+  msg: { to: string; subject: string; body: string; html?: string; unsubscribeUrl?: string }
 ): Promise<{ ok: boolean; detail: string; messageId?: string }> {
   try {
+    // RFC 8058 one-click unsubscribe (now expected by Gmail/Yahoo bulk senders).
+    const unsub = msg.unsubscribeUrl
+      ? {
+          list: { unsubscribe: { url: msg.unsubscribeUrl, comment: 'Unsubscribe' } },
+          headers: { 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' }
+        }
+      : {};
     const info = await transporter(c).sendMail({
       from: c.fromName ? `"${c.fromName}" <${c.fromEmail || c.user}>` : c.fromEmail || c.user,
       to: msg.to,
       subject: msg.subject,
       text: msg.body,
-      ...(msg.html ? { html: msg.html } : {})
+      ...(msg.html ? { html: msg.html } : {}),
+      ...unsub
     });
     return { ok: true, detail: `Sent to ${msg.to}`, messageId: info.messageId };
   } catch (e) {

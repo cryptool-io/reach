@@ -11,6 +11,7 @@ function isPublic(pathname: string): boolean {
     pathname === '/login' ||
     pathname === '/favicon.svg' ||
     pathname.startsWith('/t/') || // open/click tracking — hit by recipients, no session
+    pathname.startsWith('/u/') || // one-click unsubscribe — hit by recipients, no session
     pathname.startsWith('/_app') ||
     pathname.startsWith('/@') // vite dev internals
   );

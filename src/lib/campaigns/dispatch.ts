@@ -8,6 +8,7 @@ import { advanceAfterSend, pickVersion, evaluateStepGate } from './engine';
 import { sendProjectEmail } from '$lib/mailboxes';
 import { trackingBase, buildTrackedHtml } from '$lib/tracking';
 import { parseBlacklist, isBlacklisted } from '$lib/blacklist';
+import { isSuppressed } from '$lib/suppression';
 import type { ChannelKind } from '$lib/types';
 
 export function stepChannelKind(ch: string): ChannelKind | null {
@@ -40,16 +41,19 @@ export async function dispatchStep(
   const step = enr.campaign.steps.find((s) => s.order === enr.currentStep);
   if (!step) return { ok: false, reason: 'no-step' };
 
-  // Compliance: never send to a blacklisted address/domain (email channel).
-  // Match → terminate the enrollment so it isn't retried, and surface it.
+  // Compliance: never send to a blacklisted address/domain, or a suppressed (unsubscribed /
+  // bounced) address. Match → terminate the enrollment so it isn't retried, and surface it.
   if (stepChannelKind(step.channel) === 'email') {
+    const email = (enr.prospect.email || '').trim();
     const bl = parseBlacklist(enr.campaign.blacklistJson);
-    if (bl.length && isBlacklisted(enr.prospect.email, bl)) {
+    const blocked =
+      (bl.length && isBlacklisted(email, bl)) || (await isSuppressed(enr.campaign.projectId, email));
+    if (blocked) {
       await db.campaignEnrollment.update({
         where: { id: enrollmentId },
         data: { status: 'opted-out', nextActionAt: null, lastEventAt: new Date() }
       });
-      return { ok: false, reason: 'blacklisted', note: `${enr.prospect.email} is on the campaign blacklist` };
+      return { ok: false, reason: 'suppressed', note: `${email} is suppressed or blacklisted` };
     }
   }
 
@@ -109,9 +113,12 @@ export async function dispatchStep(
     const handle =
       kind === 'email' ? enr.prospect.email : kind === 'linkedin' ? enr.prospect.linkedinUrl : enr.prospect.xHandle;
 
-    // Compliance: append the campaign's unsubscribe line to outbound email bodies.
-    const emailBody =
-      kind === 'email' && enr.campaign.unsubMessage ? `${bodyR.text}\n\n${enr.campaign.unsubMessage}` : bodyR.text;
+    // Compliance: a per-enrollment one-click unsubscribe link, plus the optional visible footer.
+    const unsubUrl = kind === 'email' ? `${trackingBase(enr.campaign)}/u/${enr.id}` : '';
+    let emailBody = bodyR.text;
+    if (kind === 'email' && enr.campaign.unsubMessage) {
+      emailBody = `${emailBody}\n\n${enr.campaign.unsubMessage}\nUnsubscribe: ${unsubUrl}`;
+    }
     const fullBody = subjR.text ? `${subjR.text}\n\n${emailBody}` : emailBody;
 
     if (kind === 'email' && opts.trigger === 'auto') {
@@ -126,7 +133,7 @@ export async function dispatchStep(
         trackOpens: enr.campaign.trackOpens,
         trackClicks: enr.campaign.trackClicks
       });
-      const r = await sendProjectEmail(enr.campaign.projectId, { to: handle || '', subject: subjR.text, body: emailBody, html });
+      const r = await sendProjectEmail(enr.campaign.projectId, { to: handle || '', subject: subjR.text, body: emailBody, html, unsubscribeUrl: unsubUrl });
       if (!r.ok) {
         await db.message.update({ where: { id: msg.id }, data: { status: 'failed' } });
         return { ok: false, reason: r.reason === 'no-capacity' ? 'no-capacity' : 'not-sent', note: r.detail };

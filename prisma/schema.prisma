@@ -51,6 +51,21 @@ model Project {
   connections     Connection[]
   mailboxes       Mailbox[]
   templates       Template[]
+  suppressions    Suppression[]
+}
+
+// Project-wide opt-out / unsubscribe list — addresses we must never contact again.
+// Populated by one-click unsubscribe, hard bounces, or manual entry; enforced at send.
+model Suppression {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  email     String
+  reason    String   @default("unsubscribe") // unsubscribe | bounce | manual | complaint
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, email])
+  @@index([projectId])
 }
 
 // Reusable email templates (subject + body with snippets) — insert into campaign steps.

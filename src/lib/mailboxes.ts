@@ -74,7 +74,7 @@ export interface ProjectSendResult {
 /** Send one email through a specific mailbox, branching on its provider (SMTP or Microsoft Graph). */
 export async function sendFromMailbox(
   mb: Mailbox,
-  msg: { to: string; subject: string; body: string; html?: string }
+  msg: { to: string; subject: string; body: string; html?: string; unsubscribeUrl?: string }
 ): Promise<{ ok: boolean; detail: string }> {
   const creds = decryptJson<MailboxCreds & GraphCreds>(mb.credentialsJson);
   if (!creds) return { ok: false, detail: 'no credentials' };
@@ -86,7 +86,7 @@ export async function sendFromMailbox(
 
 export async function sendProjectEmail(
   projectId: string,
-  msg: { to: string; subject: string; body: string; html?: string }
+  msg: { to: string; subject: string; body: string; html?: string; unsubscribeUrl?: string }
 ): Promise<ProjectSendResult> {
   const mb = await pickMailbox(projectId);
   if (!mb) return { ok: false, reason: 'no-capacity' };
