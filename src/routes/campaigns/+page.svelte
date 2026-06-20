@@ -5,7 +5,9 @@
   let q = $state('');
   let statusFilter = $state('all');
   let sendFromFilter = $state('all');
-  let openMenu = $state(''); // status | sendfrom | row:<id> | ''
+  let folderFilter = $state('all');
+  let typeFilter = $state('all');
+  let openMenu = $state(''); // status | sendfrom | folder | type | row:<id> | ''
   let showNew = $state(false);
 
   const CH_LABEL: Record<string, string> = {
@@ -28,11 +30,15 @@
     return [...new Set((c.steps ?? []).map((s: any) => CH_LABEL[s.channel] ?? s.channel.toUpperCase()))] as string[];
   }
   let sendFroms = $derived([...new Set(data.campaigns.map((c: any) => c.mailbox).filter(Boolean))] as string[]);
+  let folders = $derived([...new Set(data.campaigns.map((c: any) => c.folder).filter(Boolean))] as string[]);
+  let types = $derived([...new Set(data.campaigns.map((c: any) => c.type).filter(Boolean))] as string[]);
   let filtered = $derived(
     data.campaigns.filter(
       (c: any) =>
         (statusFilter === 'all' || c.status === statusFilter) &&
         (sendFromFilter === 'all' || c.mailbox === sendFromFilter) &&
+        (folderFilter === 'all' || (c.folder || '') === folderFilter) &&
+        (typeFilter === 'all' || (c.type || '') === typeFilter) &&
         (q.trim() === '' || c.name.toLowerCase().includes(q.trim().toLowerCase()))
     )
   );
@@ -94,8 +100,35 @@
         {/if}
       </div>
 
-      <span class="text-ink-mute font-medium opacity-50 cursor-default" title="Folders coming soon">Folder</span>
-      <span class="text-ink-mute font-medium opacity-50 cursor-default" title="All campaigns are multichannel sequences">Campaign type</span>
+      <!-- Folder -->
+      <div class="relative">
+        <button class="font-medium underline-offset-4 hover:underline {folderFilter !== 'all' ? 'text-brand-hi' : 'text-ink-mute'}" onclick={(e) => { e.stopPropagation(); toggle('folder'); }}>Folder{folderFilter !== 'all' ? `: ${folderFilter || 'none'}` : ''}</button>
+        {#if openMenu === 'folder'}
+          <div class="absolute left-0 top-full mt-2 w-56 card shadow-pop p-1 z-30 max-h-64 overflow-auto">
+            <button class="w-full text-left px-3 py-1.5 rounded-lg text-sm row-hover {folderFilter === 'all' ? 'text-brand-hi font-medium' : 'text-ink-mute'}" onclick={() => { folderFilter = 'all'; openMenu = ''; }}>All folders</button>
+            {#each folders as fdr}
+              <button class="w-full text-left px-3 py-1.5 rounded-lg text-sm truncate row-hover {folderFilter === fdr ? 'text-brand-hi font-medium' : 'text-ink-mute'}" onclick={() => { folderFilter = fdr; openMenu = ''; }}>{fdr}</button>
+            {:else}
+              <div class="px-3 py-1.5 text-sm text-ink-dim">No folders yet — set one in a campaign's Delivery tab</div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
+      <!-- Campaign type -->
+      <div class="relative">
+        <button class="font-medium underline-offset-4 hover:underline {typeFilter !== 'all' ? 'text-brand-hi' : 'text-ink-mute'}" onclick={(e) => { e.stopPropagation(); toggle('type'); }}>Campaign type{typeFilter !== 'all' ? `: ${typeFilter}` : ''}</button>
+        {#if openMenu === 'type'}
+          <div class="absolute left-0 top-full mt-2 w-52 card shadow-pop p-1 z-30">
+            <button class="w-full text-left px-3 py-1.5 rounded-lg text-sm row-hover {typeFilter === 'all' ? 'text-brand-hi font-medium' : 'text-ink-mute'}" onclick={() => { typeFilter = 'all'; openMenu = ''; }}>All types</button>
+            {#each types as tp}
+              <button class="w-full text-left px-3 py-1.5 rounded-lg text-sm row-hover {typeFilter === tp ? 'text-brand-hi font-medium' : 'text-ink-mute'}" onclick={() => { typeFilter = tp; openMenu = ''; }}>{tp}</button>
+            {:else}
+              <div class="px-3 py-1.5 text-sm text-ink-dim">No types set yet</div>
+            {/each}
+          </div>
+        {/if}
+      </div>
     </div>
 
     <div class="flex-1"></div>
@@ -130,6 +163,8 @@
           <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {#each channelsOf(c) as ch}<span class="px-2 py-0.5 rounded-full bg-bg-elev border border-bg-border text-[10px] font-semibold tracking-wide text-ink-mute">{ch}</span>{/each}
             <span class="{STATUS_CHIP[c.status] ?? 'chip-mute'} capitalize">{c.status}</span>
+            {#if c.folder}<span class="px-2 py-0.5 rounded-full bg-bg-elev border border-bg-border text-[10px] font-semibold tracking-wide text-ink-mute" title="Folder">🗂 {c.folder}</span>{/if}
+            {#if c.type}<span class="px-2 py-0.5 rounded-full bg-bg-elev border border-bg-border text-[10px] font-semibold tracking-wide text-ink-mute">{c.type}</span>{/if}
           </div>
         </div>
 
@@ -210,6 +245,10 @@
         <div>
           <label class="label" for="cname">Campaign name</label>
           <input id="cname" name="name" class="input" placeholder="Investor cold outreach — Seed round" required />
+        </div>
+        <div>
+          <label class="label" for="cfolder2">Folder <span class="text-ink-dim font-normal">(optional)</span></label>
+          <input id="cfolder2" name="folder" class="input" placeholder="e.g. Q3 Seed round" />
         </div>
         <div class="flex justify-end gap-2">
           <button type="button" class="btn-ghost" onclick={() => (showNew = false)}>Cancel</button>

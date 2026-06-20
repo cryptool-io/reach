@@ -267,6 +267,15 @@
   {#if tab === 'delivery'}
     <div class="chip-brand inline-flex mb-4">Sending uses your connected mailboxes (inbox rotation) — add/manage them in <a href="/connections" class="underline ml-1">Connections</a>. Settings below tune cadence + compliance.</div>
     <form method="POST" action="?/updateSettings" use:enhance class="space-y-5 max-w-3xl">
+      <div class="card p-5 grid grid-cols-2 gap-4">
+        <div><label class="label" for="cfolder">Folder</label><input id="cfolder" name="folder" class="input" value={campaign.folder} placeholder="e.g. Q3 Seed round" /></div>
+        <div><label class="label" for="ctype">Campaign type</label>
+          <select id="ctype" name="type" class="input">
+            <option value="" selected={!campaign.type}>—</option>
+            {#each ['Cold outreach', 'Follow-up', 'Nurture', 'Re-engagement'] as t}<option value={t} selected={campaign.type === t}>{t}</option>{/each}
+          </select>
+        </div>
+      </div>
       <div class="card p-5 space-y-4">
         <h3 class="text-sm font-medium">Sending</h3>
         <div class="grid grid-cols-2 gap-4">

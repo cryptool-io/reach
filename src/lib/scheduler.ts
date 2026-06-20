@@ -85,7 +85,9 @@ export async function tick(): Promise<TickReport> {
     const campaigns = await db.campaign.findMany({ where: { status: 'running' }, include: { steps: true } });
     for (const c of campaigns) {
       scanned++;
-      if (!withinWindow(c)) {
+      // With per-prospect timezone we gate each enrollment by its own tz below, not the campaign's.
+      const perTz = c.perProspectTimezone;
+      if (!perTz && !withinWindow(c)) {
         details.push(`${c.name}: outside send window`);
         continue;
       }
@@ -153,6 +155,11 @@ export async function tick(): Promise<TickReport> {
         if (!step) continue;
         const k = stepChannelKind(step.channel);
         if (!k || !autoKinds.has(k)) continue; // manual/non-auto steps wait for the human Queue
+        // Per-prospect timezone: only send when it's inside THIS prospect's local window.
+        if (perTz) {
+          const tz = e.prospect.timezone || c.timezone;
+          if (!withinWindow({ timezone: tz, sendDaysJson: c.sendDaysJson, sendFrom: c.sendFrom, sendTo: c.sendTo })) continue;
+        }
         const r = await dispatchStep(e.id, { trigger: 'auto' });
         if (r.ok) {
           campaignSent++;

@@ -82,6 +82,8 @@ export const actions: Actions = {
       where: { id: params.id },
       data: {
         mailbox: String(f.get('mailbox') ?? ''),
+        folder: String(f.get('folder') ?? '').trim(),
+        type: String(f.get('type') ?? ''),
         dailyLimit: intOf('dailyLimit', 50),
         intervalMinMinutes: intOf('intervalMinMinutes', 5),
         intervalMaxMinutes: intOf('intervalMaxMinutes', 15),

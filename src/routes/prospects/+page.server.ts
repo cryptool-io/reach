@@ -213,7 +213,8 @@ export const actions: Actions = {
       linkedin: 'linkedinUrl', linkedin_url: 'linkedinUrl', linkedinurl: 'linkedinUrl',
       x: 'xHandle', twitter: 'xHandle', x_handle: 'xHandle', xhandle: 'xHandle',
       telegram: 'telegram',
-      discord: 'discord'
+      discord: 'discord',
+      timezone: 'timezone', time_zone: 'timezone', tz: 'timezone'
     };
 
     const customKeys = new Set<string>();
@@ -221,7 +222,7 @@ export const actions: Actions = {
       const cells = parseCsvLine(l);
       const fields: Record<string, string> = {
         name: '', company: '', role: '', email: '',
-        linkedinUrl: '', xHandle: '', telegram: '', discord: ''
+        linkedinUrl: '', xHandle: '', telegram: '', discord: '', timezone: ''
       };
       const custom: Record<string, string> = {};
       header.forEach((h, i) => {
@@ -244,6 +245,7 @@ export const actions: Actions = {
         xHandle: fields.xHandle,
         telegram: fields.telegram,
         discord: fields.discord,
+        timezone: fields.timezone,
         customJson: JSON.stringify(custom)
       };
     }).filter((r) => r.name);

@@ -13,6 +13,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 type StepLite = { id: string; order: number; delayDays: number; condition: string };
 
+/** Prospect ids (from the given set) that have an ACTIVE enrollment in a different campaign. Chunked. */
+async function activeInOtherCampaigns(campaignId: string, prospectIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < prospectIds.length; i += 500) {
+    const rows = await db.campaignEnrollment.findMany({
+      where: { prospectId: { in: prospectIds.slice(i, i + 500) }, status: 'active', campaignId: { not: campaignId } },
+      select: { prospectId: true }
+    });
+    rows.forEach((r) => out.add(r.prospectId));
+  }
+  return out;
+}
+
 /** Enroll prospects, skipping duplicates if the campaign asks for it. */
 export async function enrollProspects(
   campaignId: string,
@@ -24,9 +37,19 @@ export async function enrollProspects(
   });
   const firstStep = campaign.steps[0];
 
+  // Cross-campaign dedup: when enabled, also skip prospects already in another ACTIVE campaign
+  // (so the same person isn't hit by two sequences at once).
+  const activeElsewhere = campaign.detectDuplicates
+    ? await activeInOtherCampaigns(campaignId, prospectIds)
+    : new Set<string>();
+
   let added = 0;
   let skipped = 0;
   for (const prospectId of prospectIds) {
+    if (activeElsewhere.has(prospectId)) {
+      skipped++;
+      continue;
+    }
     const exists = await db.campaignEnrollment.findUnique({
       where: { campaignId_prospectId: { campaignId, prospectId } }
     });
@@ -65,11 +88,18 @@ export async function enrollMany(campaignId: string, prospectIds: string[]): Pro
   );
   const fresh = prospectIds.filter((id) => !existing.has(id));
 
+  // Cross-campaign dedup (honors the campaign's detectDuplicates toggle).
+  let candidates = fresh;
+  if (campaign.detectDuplicates && fresh.length) {
+    const elsewhere = await activeInOtherCampaigns(campaignId, fresh);
+    candidates = fresh.filter((id) => !elsewhere.has(id));
+  }
+
   const CHUNK = 200;
   let added = 0;
-  for (let i = 0; i < fresh.length; i += CHUNK) {
+  for (let i = 0; i < candidates.length; i += CHUNK) {
     await db.campaignEnrollment.createMany({
-      data: fresh.slice(i, i + CHUNK).map((prospectId) => ({
+      data: candidates.slice(i, i + CHUNK).map((prospectId) => ({
         campaignId,
         prospectId,
         currentStep,
@@ -77,7 +107,7 @@ export async function enrollMany(campaignId: string, prospectIds: string[]): Pro
         nextActionAt
       }))
     });
-    added += Math.min(CHUNK, fresh.length - i);
+    added += Math.min(CHUNK, candidates.length - i);
   }
   return added;
 }

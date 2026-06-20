@@ -27,7 +27,7 @@ export const actions: Actions = {
     if (!name) return fail(400, { error: 'name required' });
 
     const campaign = await db.campaign.create({
-      data: { projectId: locals.activeProjectId, name }
+      data: { projectId: locals.activeProjectId, name, folder: String(f.get('folder') ?? '').trim() }
     });
     // seed an opening email step with an A version so the builder isn't empty
     const step = await db.campaignStep.create({

@@ -2,9 +2,9 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/db';
 import { authProject, json, unauthorized } from '$lib/apiAuth';
 
-type ProspectLike = { id: string; name: string; email: string; emailStatus?: string; company: string; role: string; stage: string; tags: string; linkedinUrl: string };
+type ProspectLike = { id: string; name: string; email: string; emailStatus?: string; timezone?: string; company: string; role: string; stage: string; tags: string; linkedinUrl: string };
 function pub(p: ProspectLike) {
-  return { id: p.id, name: p.name, email: p.email, emailStatus: p.emailStatus ?? '', company: p.company, role: p.role, stage: p.stage, tags: p.tags, linkedin: p.linkedinUrl };
+  return { id: p.id, name: p.name, email: p.email, emailStatus: p.emailStatus ?? '', timezone: p.timezone ?? '', company: p.company, role: p.role, stage: p.stage, tags: p.tags, linkedin: p.linkedinUrl };
 }
 
 // GET /api/v1/prospects?limit=100 — list prospects (most recently updated first).
@@ -46,7 +46,8 @@ export const POST: RequestHandler = async ({ request }) => {
       role: str('role', existing?.role ?? ''),
       email,
       linkedinUrl: it.linkedin != null ? String(it.linkedin) : str('linkedinUrl', existing?.linkedinUrl ?? ''),
-      tags: str('tags', existing?.tags ?? '')
+      tags: str('tags', existing?.tags ?? ''),
+      timezone: str('timezone', existing?.timezone ?? '')
     };
     if (existing) {
       const p = await db.prospect.update({ where: { id: existing.id }, data });
