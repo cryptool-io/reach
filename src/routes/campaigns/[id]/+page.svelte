@@ -56,6 +56,11 @@
     el.focus();
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }
+  // Snippet chips insert into whichever field you last focused (subject or body) — defaults to body.
+  let focusedField = $state('');
+  function snippetTarget(verId: string): string {
+    return focusedField === 'subj-' + verId || focusedField === 'body-' + verId ? focusedField : 'body-' + verId;
+  }
   // Load a saved template's subject + body into this version's fields (replaces current text).
   function applyTemplate(verId: string, payload: string) {
     if (!payload) return;
@@ -135,10 +140,6 @@
 
   <!-- ── SEQUENCE ─────────────────────────────────────────────── -->
   {#if tab === 'sequence'}
-    <div class="mb-3 text-xs text-ink-dim">
-      Snippets: {#each SNIPPETS as s}<button class="chip-mute mr-1 mb-1" onclick={() => copy(s)}>{s}</button>{/each} · click to copy ·
-      add a fallback with <code>{`{{first_name|there}}`}</code> so blank fields read cleanly.
-    </div>
     <div class="space-y-6 max-w-3xl mx-auto">
       {#each campaign.steps as step, i}
         {@const cur = chanOf(step)}
@@ -213,12 +214,12 @@
               <form method="POST" action="?/updateVersion" use:enhance class="space-y-2">
                 <input type="hidden" name="versionId" value={ver.id} />
                 {#if cur === 'email'}
-                  <input id={'subj-' + ver.id} name="subject" class="input" placeholder={'Subject — snippets like {{first_name}} work here'} value={ver.subject} />
+                  <input id={'subj-' + ver.id} name="subject" class="input" placeholder={'Subject — snippets like {{first_name}} work here'} value={ver.subject} onfocus={() => (focusedField = 'subj-' + ver.id)} />
                 {:else}
                   <input type="hidden" name="subject" value={ver.subject} />
                 {/if}
                 <div class="flex items-center gap-1 flex-wrap border border-bg-border rounded-lg px-2 py-1.5 bg-bg-elev/40">
-                  {#each SNIPPETS as s}<button type="button" class="chip-mute hover:text-brand-hi" onclick={() => insertSnippet('body-' + ver.id, s)}>{s}</button>{/each}
+                  {#each SNIPPETS as s}<button type="button" class="chip-mute hover:text-brand-hi" onclick={() => insertSnippet(snippetTarget(ver.id), s)}>{s}</button>{/each}
                   <button type="button" class="chip-mute hover:text-brand-hi" title="Insert a link — auto-tracked when sent" onclick={() => insertSnippet('body-' + ver.id, 'https://')}>🔗 link</button>
                   {#if data.templates?.length}
                     <select class="ml-1 text-xs bg-bg-elev border border-bg-border rounded px-1.5 py-1 text-ink-mute" title="Insert a saved template (replaces this version's text)" onchange={(e) => { applyTemplate(ver.id, e.currentTarget.value); e.currentTarget.selectedIndex = 0; }}>
@@ -226,9 +227,9 @@
                       {#each data.templates as t}<option value={JSON.stringify({ subject: t.subject, body: t.body })}>{t.name}</option>{/each}
                     </select>
                   {/if}
-                  <span class="text-[10px] text-ink-dim ml-1">click to insert · fallback: <code>{`{{first_name|there}}`}</code></span>
+                  <span class="text-[10px] text-ink-dim ml-1">click to insert into subject or body · fallback: <code>{`{{first_name|there}}`}</code></span>
                 </div>
-                <textarea id={'body-' + ver.id} name="body" rows="9" class="input text-sm leading-relaxed" placeholder={'Hi {{first_name}},\n\n…'}>{ver.body}</textarea>
+                <textarea id={'body-' + ver.id} name="body" rows="9" class="input text-sm leading-relaxed" placeholder={'Hi {{first_name}},\n\n…'} onfocus={() => (focusedField = 'body-' + ver.id)}>{ver.body}</textarea>
                 <div class="flex items-center gap-3 flex-wrap">
                   <span class="text-xs text-ink-dim">{ver.sent} sent · {ver.opened} opened · {ver.clicked} clicked · {ver.replied} replied</span>
                   {#if spam.score > 0}
