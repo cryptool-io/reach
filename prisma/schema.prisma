@@ -84,6 +84,7 @@ model Mailbox {
   status          String   @default("active")   // active | paused | error
   lastError       String   @default("")
   lastTestedAt    DateTime?
+  lastSyncAt      DateTime?                       // IMAP inbound-sync watermark (replies/bounces/OOO)
   createdAt       DateTime @default(now())
 
   @@index([projectId, status])
