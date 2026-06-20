@@ -6,7 +6,7 @@
   let pct = $derived(Math.round((done / 5) * 100));
 </script>
 
-<section class="max-w-3xl">
+<section class="max-w-6xl mx-auto">
   <h1 class="text-2xl font-semibold tracking-tight mb-1">Get started</h1>
   <p class="text-ink-mute mb-6">The fastest path from here to sending. Steps the app can do for you are one click.</p>
 

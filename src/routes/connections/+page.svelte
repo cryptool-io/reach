@@ -29,7 +29,7 @@
   }
 </script>
 
-<section class="max-w-3xl">
+<section class="mx-auto max-w-4xl">
   <div class="mb-6">
     <h1 class="text-2xl font-semibold tracking-tight">Connections</h1>
     <p class="text-ink-mute">Connect this project's own sending accounts. Each client/project sets up their own — credentials are encrypted at rest.</p>

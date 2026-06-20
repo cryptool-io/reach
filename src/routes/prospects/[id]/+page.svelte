@@ -27,9 +27,9 @@
   }
 </script>
 
-<section class="grid grid-cols-3 gap-6">
+<section class="mx-auto max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
   <!-- Left: prospect summary + actions -->
-  <div class="col-span-1 space-y-4">
+  <div class="lg:col-span-1 space-y-4">
     <div class="card p-5">
       <div class="text-xs text-ink-dim mb-1">{project.name}</div>
       <h1 class="text-xl font-semibold tracking-tight">{prospect.name}</h1>
@@ -139,7 +139,7 @@
   </div>
 
   <!-- Right: composer + timeline -->
-  <div class="col-span-2 space-y-4">
+  <div class="lg:col-span-2 space-y-4">
     <div class="card p-5">
       <h3 class="text-sm font-medium mb-3">Message composer</h3>
       <form method="POST" action="?/draft" use:enhance class="space-y-3">

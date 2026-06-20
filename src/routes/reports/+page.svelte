@@ -15,7 +15,7 @@
   const statusChip: Record<string, string> = { draft: 'chip-mute', running: 'chip-good', paused: 'chip-warn', completed: 'chip-brand' };
 </script>
 
-<section class="space-y-6">
+<section class="mx-auto max-w-5xl space-y-6">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Reports</h1>
     <p class="text-ink-mute">Performance across all campaigns in <b>{data.project?.name ?? 'this project'}</b>.</p>
@@ -52,8 +52,8 @@
 
     <div>
       <h3 class="text-sm font-medium mb-2">Campaign comparison</h3>
-      <div class="card overflow-hidden">
-        <table class="w-full text-sm">
+      <div class="card overflow-hidden overflow-x-auto">
+        <table class="w-full text-sm min-w-[640px]">
           <thead class="bg-bg-elev text-ink-mute text-xs uppercase tracking-wider">
             <tr>
               <th class="text-left px-4 py-2 font-medium">Campaign</th>

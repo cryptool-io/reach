@@ -8,7 +8,7 @@
   const qs = (id: string) => `/conversations?c=${id}${data.filter ? '&channel=' + data.filter : ''}`;
 </script>
 
-<section>
+<section class="mx-auto max-w-6xl">
   <div class="mb-4">
     <h1 class="text-2xl font-semibold tracking-tight">Inbox</h1>
     <p class="text-ink-mute">Replies across all channels — read, tag interest, respond.</p>

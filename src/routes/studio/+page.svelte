@@ -16,7 +16,7 @@
   }
 </script>
 
-<section class="max-w-4xl">
+<section class="mx-auto max-w-4xl">
   <div class="mb-6">
     <h1 class="text-2xl font-semibold tracking-tight">Studio</h1>
     <p class="text-ink-mute">Claude builds fundraising assets from your project narrative — a pitch deck and a data-room structure. Outputs are drafts to refine, never invented facts.</p>

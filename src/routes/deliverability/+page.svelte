@@ -30,7 +30,7 @@
   </div>
 {/snippet}
 
-<section class="max-w-4xl space-y-6">
+<section class="mx-auto max-w-5xl space-y-6">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Deliverability</h1>
     <p class="text-ink-mute">Domain authentication, mailbox health & bounce rate for <b>{data.project?.name ?? 'this project'}</b>.</p>

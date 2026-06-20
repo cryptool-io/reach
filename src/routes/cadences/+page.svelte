@@ -15,7 +15,7 @@
   );
 </script>
 
-<section>
+<section class="mx-auto max-w-4xl">
   <div class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Cadences</h1>

@@ -5,7 +5,7 @@
   let { data, form } = $props();
 </script>
 
-<section class="max-w-4xl space-y-6">
+<section class="mx-auto max-w-4xl space-y-6">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
     <p class="text-ink-mute">Project narrative, channels, mode switch, and content assets.</p>
@@ -91,12 +91,12 @@
         {/each}
       </div>
       <form method="POST" action="?/addField" use:enhance class="grid grid-cols-12 gap-2">
-        <input name="label" class="input col-span-5" placeholder="Field label (e.g. Fund type)" />
-        <input name="key" class="input col-span-4" placeholder="key (optional)" />
-        <select name="type" class="input col-span-2">
+        <input name="label" class="input col-span-12 sm:col-span-5" placeholder="Field label (e.g. Fund type)" />
+        <input name="key" class="input col-span-12 sm:col-span-4" placeholder="key (optional)" />
+        <select name="type" class="input col-span-8 sm:col-span-2">
           {#each ['text', 'number', 'url'] as t}<option value={t}>{t}</option>{/each}
         </select>
-        <div class="col-span-1"><button class="btn-outline w-full" type="submit">+</button></div>
+        <div class="col-span-4 sm:col-span-1"><button class="btn-outline w-full" type="submit">+</button></div>
       </form>
     </div>
 
@@ -129,9 +129,9 @@
     <div class="card p-5">
       <h3 class="text-sm font-medium mb-3">Content assets</h3>
       <form method="POST" action="?/addAsset" use:enhance class="grid grid-cols-12 gap-2 mb-4">
-        <input name="title" class="input col-span-4" placeholder="Title" />
-        <input name="url" class="input col-span-6" placeholder="https://…" />
-        <select name="kind" class="input col-span-2">
+        <input name="title" class="input col-span-12 sm:col-span-4" placeholder="Title" />
+        <input name="url" class="input col-span-12 sm:col-span-6" placeholder="https://…" />
+        <select name="kind" class="input col-span-12 sm:col-span-2">
           {#each ['deck', 'dataroom', 'calendar', 'one-pager', 'link'] as k}<option value={k}>{k}</option>{/each}
         </select>
         <div class="col-span-12"><button class="btn-outline" type="submit">+ Add asset</button></div>

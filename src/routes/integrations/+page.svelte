@@ -10,7 +10,7 @@
   const fmt = (d: string | Date | null) => (d ? new Date(d).toLocaleString() : '—');
 </script>
 
-<section class="max-w-4xl">
+<section class="mx-auto max-w-4xl">
   <h1 class="text-2xl font-semibold tracking-tight mb-1">API &amp; Webhooks</h1>
   <p class="text-ink-mute text-sm mb-6">Connect Reach to your CRM, Zapier/Make, or your own code — push events out with webhooks, pull/push data with the REST API.</p>
 

@@ -2,7 +2,7 @@
   let { data } = $props();
 </script>
 
-<section class="max-w-4xl space-y-5">
+<section class="mx-auto max-w-5xl space-y-5">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Lists</h1>
     <p class="text-ink-mute">Segments of your prospects. A list is a <b>tag</b> — tag prospects on the Prospects page (select → Add tag) and they group here.</p>

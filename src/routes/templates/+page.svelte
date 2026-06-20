@@ -8,7 +8,7 @@
   }
 </script>
 
-<section class="max-w-3xl space-y-5">
+<section class="mx-auto max-w-4xl space-y-5">
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Templates</h1>

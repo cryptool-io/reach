@@ -47,8 +47,8 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
 
 </script>
 
-<section class="max-w-4xl">
-  <div class="flex items-center justify-between mb-2">
+<section class="mx-auto max-w-4xl">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Mailboxes</h1>
       <p class="text-ink-mute">Sending inboxes for <b>{data.project?.name ?? 'this project'}</b> — rotated to send at volume. Each project/company connects its own.</p>
@@ -63,7 +63,7 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
   </div>
 
   {#if data.capacity}
-    <div class="card p-4 mb-4 flex items-center gap-6 text-sm">
+    <div class="card p-4 mb-4 flex flex-wrap items-center gap-6 text-sm">
       <div><span class="text-2xl font-semibold">{data.capacity.mailboxes}</span> <span class="text-ink-dim">mailboxes</span></div>
       <div><span class="text-2xl font-semibold">~{data.capacity.limit.toLocaleString()}</span> <span class="text-ink-dim">emails/day capacity</span></div>
       <div><span class="text-2xl font-semibold">{data.capacity.remaining.toLocaleString()}</span> <span class="text-ink-dim">remaining today</span></div>
@@ -132,7 +132,7 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
           <ol class="list-decimal pl-4 space-y-1 text-xs text-ink-mute">{#each GRAPH_STEPS as s}<li>{s}</li>{/each}</ol>
         </div>
         <form method="POST" action="?/addGraph" use:enhance={() => async ({ update }) => { await update(); mode = 'list'; }} class="space-y-3">
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid sm:grid-cols-2 gap-2">
             <div><span class="label">Label</span><input name="label" class="input" placeholder="M365 — Ron" /></div>
             <div><span class="label">From name</span><input name="fromName" class="input" placeholder="Ron at Cryptool" /></div>
             <div class="col-span-2"><span class="label">From email (a mailbox in your tenant)</span><input name="fromEmail" class="input" placeholder="ron@cryptool.io" required /></div>
@@ -155,7 +155,7 @@ Inbox 2,Ron at Cryptool,ron@cryptool.co,smtp.gmail.com,465,true,ron@cryptool.co,
         <div><span class="label">Provider</span>
           <select class="input" bind:value={chosenPreset}>{#each data.presets as p}<option value={p.id}>{p.label}</option>{/each}</select>
         </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid sm:grid-cols-2 gap-2">
           <div><span class="label">Label</span><input name="label" class="input" placeholder="Inbox 1" /></div>
           <div><span class="label">From name</span><input name="fromName" class="input" placeholder="Ron at Cryptool" /></div>
           <div><span class="label">From email</span><input name="fromEmail" class="input" required /></div>

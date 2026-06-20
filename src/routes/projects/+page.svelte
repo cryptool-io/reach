@@ -15,7 +15,7 @@
   let icpHint = $derived((HINTS[selectedPreset] ?? HINTS.blank).icp);
 </script>
 
-<section class="max-w-4xl">
+<section class="max-w-4xl mx-auto">
   <div class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Projects</h1>

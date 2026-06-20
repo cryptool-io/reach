@@ -47,7 +47,7 @@
 
 <svelte:window onclick={() => (openMenu = '')} />
 
-<section>
+<section class="max-w-6xl mx-auto">
   <!-- Breadcrumb -->
   <div class="flex items-center gap-3 mb-6 text-sm font-semibold tracking-wide">
     <span class="flex items-center gap-2 text-ink">

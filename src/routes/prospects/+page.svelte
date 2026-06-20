@@ -168,7 +168,7 @@
   {#if !allMatching}{#each [...selected] as id}<input type="hidden" name="id" value={id} />{/each}{/if}
 {/snippet}
 
-<section>
+<section class="mx-auto max-w-7xl">
   <div class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Prospects</h1>

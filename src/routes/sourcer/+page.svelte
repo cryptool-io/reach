@@ -5,7 +5,7 @@
   let aLoading = $state(false);
 </script>
 
-<section class="max-w-4xl">
+<section class="mx-auto max-w-5xl">
   <div class="mb-6">
     <h1 class="text-2xl font-semibold tracking-tight">Lead Finder</h1>
     <p class="text-ink-mute">Find investor contacts — search Apollo's licensed, verified database, or let AI suggest targets from your ICP.</p>
@@ -40,6 +40,7 @@
               <button class="btn-primary btn-sm" type="submit">Import selected</button>
             </div>
             <div class="card overflow-hidden">
+              <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead class="bg-bg-elev text-ink-mute text-xs uppercase tracking-wider">
                   <tr><th class="px-3 py-2 w-8"></th><th class="text-left px-3 py-2 font-medium">Name</th><th class="text-left px-3 py-2 font-medium">Title</th><th class="text-left px-3 py-2 font-medium">Company</th><th class="text-left px-3 py-2 font-medium">Email</th></tr>
@@ -58,6 +59,7 @@
                   {/each}
                 </tbody>
               </table>
+              </div>
             </div>
           </form>
         {/if}

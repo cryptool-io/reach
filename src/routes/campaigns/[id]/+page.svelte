@@ -99,7 +99,7 @@
   ];
 </script>
 
-<section>
+<section class="max-w-6xl mx-auto">
   <!-- Header -->
   <div class="flex items-center justify-between mb-4">
     <div>
@@ -266,8 +266,9 @@
 
   <!-- ── DELIVERY ─────────────────────────────────────────────── -->
   {#if tab === 'delivery'}
+    <div class="max-w-3xl mx-auto">
     <div class="chip-brand inline-flex mb-4">Sending uses your connected mailboxes (inbox rotation) — add/manage them in <a href="/connections" class="underline ml-1">Connections</a>. Settings below tune cadence + compliance.</div>
-    <form method="POST" action="?/updateSettings" use:enhance class="space-y-5 max-w-3xl">
+    <form method="POST" action="?/updateSettings" use:enhance class="space-y-5">
       <div class="card p-5 grid grid-cols-2 gap-4">
         <div><label class="label" for="cfolder">Folder</label><input id="cfolder" name="folder" class="input" value={campaign.folder} placeholder="e.g. Q3 Seed round" /></div>
         <div><label class="label" for="ctype">Campaign type</label>
@@ -329,6 +330,7 @@
       <button class="btn-primary">Save delivery settings</button>
       {#if form?.ok === 'settings'}<span class="text-sm text-accent-good ml-3">Saved.</span>{/if}
     </form>
+    </div>
   {/if}
 
   <!-- ── PROSPECTS ────────────────────────────────────────────── -->

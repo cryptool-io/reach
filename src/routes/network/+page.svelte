@@ -4,8 +4,8 @@
   let showImport = $state(false);
 </script>
 
-<section class="max-w-4xl">
-  <div class="flex items-center justify-between mb-6">
+<section class="mx-auto max-w-5xl">
+  <div class="flex items-center justify-between gap-3 flex-wrap mb-6">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Network</h1>
       <p class="text-ink-mute">Your connections power the Warm Intro Mapper — on any prospect, Reach surfaces who in your network can introduce you.</p>
@@ -33,6 +33,7 @@
   {#if form?.error}<div class="card p-3 mb-4 text-sm text-accent-bad">{form.error}</div>{/if}
 
   <div class="card overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="bg-bg-elev text-ink-mute text-xs uppercase tracking-wider">
         <tr><th class="text-left px-4 py-2 font-medium">Name</th><th class="text-left px-4 py-2 font-medium">Company</th><th class="text-left px-4 py-2 font-medium">Title</th></tr>
@@ -49,6 +50,7 @@
         {/each}
       </tbody>
     </table>
+    </div>
   </div>
   {#if data.count > data.connections.length}
     <p class="text-xs text-ink-dim mt-2">Showing {data.connections.length} of {data.count}.</p>
